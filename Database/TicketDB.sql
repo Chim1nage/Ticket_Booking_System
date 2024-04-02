@@ -16,22 +16,25 @@ CREATE TABLE stadium (
 );
 
 CREATE TABLE host (
-    host_id 		INT PRIMARY KEY,
-    host_first_name VARCHAR(255) NOT NULL,
-    host_last_name 	VARCHAR(255) NOT NULL,
-    host_birth_date DATE NOT NULL
+                      host_username     VARCHAR(64) PRIMARY KEY,
+                      host_password     VARCHAR(64)  NOT NULL,
+                      host_email        VARCHAR(64) UNIQUE,
+                      host_phone_number VARCHAR(32) UNIQUE,
+                      host_first_name   VARCHAR(255) NOT NULL,
+                      host_last_name    VARCHAR(255) NOT NULL,
+                      host_birth_date   DATE         NOT NULL
 );
 
 CREATE TABLE event (
-    event_id	INT AUTO_INCREMENT PRIMARY KEY,
-    event_name 	VARCHAR(255) NOT NULL,
-    event_date 	DATE NOT NULL,
-    event_type 	ENUM("Sport", "Concert", "Art & Theater", "Family", "Other") NOT NULL,
-    stadium_id	INT NOT NULL,
-    host_id		INT NOT NULL,
+                       event_id      INT AUTO_INCREMENT PRIMARY KEY,
+                       event_name    VARCHAR(255) NOT NULL,
+                       event_date    DATE         NOT NULL,
+                       event_type    ENUM("Sport", "Concert", "Art & Theater", "Family", "Other") NOT NULL,
+                       stadium_id    INT          NOT NULL,
+                       host_username VARCHAR(64)  NOT NULL,
     FOREIGN KEY (stadium_id) REFERENCES stadium(stadium_id)
 		ON UPDATE CASCADE ON DELETE RESTRICT,
-	FOREIGN KEY (host_id) REFERENCES host(host_id)
+                       FOREIGN KEY (host_username) REFERENCES host (host_username)
 		ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
@@ -58,10 +61,10 @@ CREATE TABLE store (
 );
 
 CREATE TABLE user (
-    user_name 			VARCHAR(255) PRIMARY KEY,
-    user_password 		VARCHAR(255) NOT NULL,
+                      user_name         VARCHAR(64) PRIMARY KEY,
+                      user_password     VARCHAR(64)        NOT NULL,
     user_email 			VARCHAR(255) UNIQUE NOT NULL,
-    user_phone_number 	INT UNIQUE NOT NULL,
+                      user_phone_number VARCHAR(32) UNIQUE NOT NULL,
     user_birth_year 	YEAR
 );
 
