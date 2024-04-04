@@ -17,12 +17,12 @@ CREATE TABLE stadium (
 
 CREATE TABLE host (
                       host_username     VARCHAR(64) PRIMARY KEY,
-                      host_password     VARCHAR(64)  NOT NULL,
-                      host_email        VARCHAR(64) UNIQUE,
-                      host_phone_number VARCHAR(32) UNIQUE,
-                      host_first_name   VARCHAR(255) NOT NULL,
-                      host_last_name    VARCHAR(255) NOT NULL,
-                      host_birth_date   DATE         NOT NULL
+                      host_password     VARCHAR(64)        NOT NULL,
+                      host_email        VARCHAR(64) UNIQUE NOT NULL,
+                      host_phone_number VARCHAR(32) UNIQUE NOT NULL,
+                      host_first_name   VARCHAR(255)       NOT NULL,
+                      host_last_name    VARCHAR(255)       NOT NULL,
+                      host_birth_date   DATE               NOT NULL
 );
 
 CREATE TABLE event (
@@ -65,7 +65,7 @@ CREATE TABLE user (
                       user_password     VARCHAR(64)        NOT NULL,
     user_email 			VARCHAR(255) UNIQUE NOT NULL,
                       user_phone_number VARCHAR(32) UNIQUE NOT NULL,
-    user_birth_year 	YEAR
+                      user_birth_year YEAR NOT NULL
 );
 
 CREATE TABLE account(
