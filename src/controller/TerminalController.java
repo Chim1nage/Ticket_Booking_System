@@ -29,7 +29,11 @@ public class TerminalController implements IController {
     private final String dbName = "TicketDB";
     public Connection connnection = null;
     public Scanner scanner = null;
-    public boolean isHost = false;
+    private boolean isHost = false;
+    private boolean loggedIn = false;
+    private String loginAccount;
+    private String loginPassword;
+    private String loginMethod;
 
     /**
      * Prompt user to get login details
@@ -59,6 +63,9 @@ public class TerminalController implements IController {
                 + "?characterEncoding=UTF-8&useSSL=false", connectionProps);
     }
 
+    /**
+     * Checks if the client is a user or a host.
+     */
     private void hostOrUser() {
         System.out.println("Are you a \"host\" or a \"user\"?");
         while (true) {
@@ -74,18 +81,14 @@ public class TerminalController implements IController {
         }
     }
 
+    /**
+     * The process of register
+     */
     private void systemRegister() {
         if (this.isHost) {
-            List<String> allHostUser;
-            List<String> allHostEmail;
-            List<String> allHostPhone;
-            try {
-                allHostUser = this.getFieldFromTable("host_username", "host");
-                allHostEmail = this.getFieldFromTable("host_email", "host");
-                allHostPhone = this.getFieldFromTable("host_phone_number", "host");
-            } catch (SQLException e) {
-                throw new RuntimeException("Should not reach here! " + e);
-            }
+            List<String> allHostUser = this.getFieldFromTable("host_username", "host");
+            List<String> allHostEmail = this.getFieldFromTable("host_email", "host");
+            List<String> allHostPhone = this.getFieldFromTable("host_phone_number", "host");
             String regUserName, regPassword, regEmail, regPhone, regFirstName, regLastName, regBirth;
 
             while (true) {
@@ -162,7 +165,7 @@ public class TerminalController implements IController {
                         statement.setString(6, regLastName);
                         statement.setString(7, regBirth);
                         int rowsInserted = statement.executeUpdate();
-                        if (rowsInserted > 0) {
+                        if (rowsInserted == 1) {
                             System.out.println("Successfully created a new host account, please login!");
                         }
                         break;
@@ -175,18 +178,11 @@ public class TerminalController implements IController {
                 }
             }
         } else {
-            List<String> allUser;
-            List<String> allEmail;
-            List<String> allPhone;
-            try {
-                allUser = this.getFieldFromTable("user_name", "user");
-                allEmail = this.getFieldFromTable("user_email", "user");
-                allPhone = this.getFieldFromTable("user_phone_number", "user");
-            } catch (SQLException e) {
-                throw new RuntimeException("Should not reach here! " + e);
-            }
-
+            List<String> allUser = this.getFieldFromTable("user_name", "user");
+            List<String> allEmail = this.getFieldFromTable("user_email", "user");
+            List<String> allPhone = this.getFieldFromTable("user_phone_number", "user");
             String userName, userPassword, userEmail, userPhoneNumber, userBirthYear;
+
             while (true) {
                 // Get username
                 while (true) {
@@ -260,7 +256,7 @@ public class TerminalController implements IController {
                         statement.setString(4, userPhoneNumber);
                         statement.setString(5, userBirthYear);
                         int rowsInserted = statement.executeUpdate();
-                        if (rowsInserted > 0) {
+                        if (rowsInserted == 1) {
                             System.out.println("Successfully created a new user account, please login!");
                         }
                         break;
@@ -275,11 +271,139 @@ public class TerminalController implements IController {
         }
     }
 
-    private void systemLogin(boolean back) {
+    /**
+     * The process of login. Will change loggedIn to true if successfully logs in.
+     */
+    private void systemLogin() {
+        String inputLoginAccount, inputLoginPassword, method;
+        List<String> compareList;
+
         if (this.isHost) {
+            while (true) {
+                System.out.println("Please select login method: \"username\", \"email\", \"phone\"");
+                method = scanner.nextLine();
+                if (method.equalsIgnoreCase("username")) {
+                    method = "username";
+                    compareList = this.getFieldFromTable("host_username", "host");
+                    break;
+                } else if (method.equalsIgnoreCase("email")) {
+                    method = "email";
+                    compareList = this.getFieldFromTable("host_email", "host");
+                    break;
+                } else if (method.equalsIgnoreCase("phone")) {
+                    method = "phone_number";
+                    compareList = this.getFieldFromTable("host_phone_number", "host");
+                    break;
+                } else {
+                    System.out.println("Invalid input. Enter any to select again or \"b\" to return to previous page");
+                    String option = scanner.nextLine();
+                    if (option.equalsIgnoreCase("b")) {
+                        return;
+                    }
+                }
+            }
 
+            // Verify username and account
+            while (true) {
+                System.out.print("Please enter " + method + ": ");
+                inputLoginAccount = scanner.nextLine();
+                System.out.print("Please enter password: ");
+                inputLoginPassword = scanner.nextLine();
+
+                if (compareList.contains(inputLoginAccount)) {
+                    try {
+                        String sql = "SELECT host_password FROM host WHERE host_" + method + " = ?";
+                        PreparedStatement ps = connnection.prepareStatement(sql);
+                        ps.setString(1, inputLoginAccount);
+                        ResultSet rs = ps.executeQuery();
+                        rs.next();
+                        password = rs.getString("host_password");
+
+                        rs.close();
+                        ps.close();
+                    } catch (SQLException e) {
+                        throw new RuntimeException("Should not reach here. Error: " + e);
+                    }
+
+                    // Verify Host input password
+                    if (inputLoginPassword.equals(password)) {
+                        loggedIn = true;
+                        System.out.println("Successfully Logged In!");
+                        this.loginAccount = inputLoginAccount;
+                        this.loginPassword = inputLoginPassword;
+                        this.loginMethod = method;
+                        return;
+                    }
+                }
+                System.out.println("Incorrect Username or Password! Enter any to retry, or \"b\" to return to previous page.");
+                String option = scanner.nextLine();
+                if (option.equalsIgnoreCase("b")) {
+                    return;
+                }
+            }
         } else {
+            while (true) {
+                System.out.println("Please select login method: \"username\", \"email\", \"phone\"");
+                method = scanner.nextLine();
+                if (method.equalsIgnoreCase("username")) {
+                    method = "username";
+                    compareList = this.getFieldFromTable("user_username", "user");
+                    break;
+                } else if (method.equalsIgnoreCase("email")) {
+                    method = "email";
+                    compareList = this.getFieldFromTable("user_email", "user");
+                    break;
+                } else if (method.equalsIgnoreCase("phone")) {
+                    method = "phone_number";
+                    compareList = this.getFieldFromTable("user_phone_number", "user");
+                    break;
+                } else {
+                    System.out.println("Invalid input. Enter any to select again or \"b\" to return to previous page");
+                    String option = scanner.nextLine();
+                    if (option.equalsIgnoreCase("b")) {
+                        return;
+                    }
+                }
+            }
 
+            // Verify username and account
+            while (true) {
+                System.out.print("Please enter " + method + ": ");
+                inputLoginAccount = scanner.nextLine();
+                System.out.print("Please enter password: ");
+                inputLoginPassword = scanner.nextLine();
+
+                if (compareList.contains(inputLoginAccount)) {
+                    try {
+                        String sql = "SELECT user_password FROM user WHERE user_" + method + " = ?";
+                        PreparedStatement ps = connnection.prepareStatement(sql);
+                        ps.setString(1, inputLoginAccount);
+                        ResultSet rs = ps.executeQuery();
+                        rs.next();
+                        password = rs.getString("host_password");
+
+                        rs.close();
+                        ps.close();
+                    } catch (SQLException e) {
+                        throw new RuntimeException("Should not reach here. Error: " + e);
+                    }
+
+                    // Verify Host input password
+                    if (inputLoginPassword.equals(password)) {
+                        loggedIn = true;
+                        System.out.println("Successfully Logged In!");
+                        this.loginAccount = inputLoginAccount;
+                        this.loginPassword = inputLoginPassword;
+                        this.loginMethod = method;
+                        return;
+                    }
+                }
+                System.out.println("Incorrect Username or Password! Enter any to retry, or \"b\" to return to previous page.");
+                String option = scanner.nextLine();
+                if (option.equalsIgnoreCase("b")) {
+                    return;
+                }
+            }
         }
     }
 
@@ -291,19 +415,22 @@ public class TerminalController implements IController {
      * @return list of all elements in column
      * @throws SQLException
      */
-    private List<String> getFieldFromTable(String field, String table) throws SQLException {
-        PreparedStatement ps = connnection.prepareStatement("select " + field + " from " + table);
-        ResultSet rs = ps.executeQuery();
+    private List<String> getFieldFromTable(String field, String table) {
         List<String> result = new ArrayList<>();
+        try {
+            PreparedStatement ps = connnection.prepareStatement("select " + field + " from " + table);
+            ResultSet rs = ps.executeQuery();
 
-        while (rs.next()) {
-            result.add(rs.getString(field));
+            while (rs.next()) {
+                result.add(rs.getString(field));
+            }
+            rs.close();
+            ps.close();
+        } catch (SQLException e) {
+            throw new RuntimeException("Should not reach here. Error: " + e);
         }
-        rs.close();
-        ps.close();
         return result;
     }
-
 
     /**
      * Connect to MySQL and call other functions
@@ -334,12 +461,11 @@ public class TerminalController implements IController {
         this.hostOrUser();
 
         // Login and Register Procedure
-        boolean login = true;
-        while (login) {
+        while (!this.loggedIn) {
             System.out.println("Please select \"login\" to an existing account, \"register\" for an account or \"quit\" application");
             String selection = scanner.nextLine();
             if (selection.equalsIgnoreCase("login")) {
-                this.systemLogin(login);
+                this.systemLogin();
             } else if (selection.equalsIgnoreCase("register")) {
                 this.systemRegister();
             } else if (selection.equalsIgnoreCase("quit")) {
