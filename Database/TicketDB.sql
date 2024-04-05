@@ -61,7 +61,7 @@ CREATE TABLE store (
 );
 
 CREATE TABLE user (
-                      user_name         VARCHAR(64) PRIMARY KEY,
+                      user_username     VARCHAR(64) PRIMARY KEY,
                       user_password     VARCHAR(64)        NOT NULL,
     user_email 			VARCHAR(255) UNIQUE NOT NULL,
                       user_phone_number VARCHAR(32) UNIQUE NOT NULL,
@@ -75,11 +75,11 @@ CREATE TABLE account(
 
 CREATE TABLE account_user(
     account_number 	INT NOT NULL,
-    user_name   	VARCHAR(255) NOT NULL,
-    PRIMARY KEY(account_number, user_name),
+    user_username VARCHAR(255) NOT NULL,
+    PRIMARY KEY (account_number, user_username),
     FOREIGN KEY (account_number) REFERENCES account(account_number)
         ON UPDATE CASCADE ON DELETE CASCADE,
-    FOREIGN KEY (user_name) REFERENCES user(user_name)
+    FOREIGN KEY (user_username) REFERENCES user (user_username)
         ON UPDATE CASCADE ON DELETE CASCADE
 );
 
@@ -102,9 +102,9 @@ CREATE TABLE ticket(
         on UPDATE CASCADE ON DELETE RESTRICT,
     FOREIGN KEY (event_id) REFERENCES event(event_id)
         on UPDATE CASCADE ON DELETE RESTRICT,
-	FOREIGN KEY (buyer) REFERENCES user(user_name)
+    FOREIGN KEY (buyer) REFERENCES user (user_username)
         on UPDATE CASCADE ON DELETE RESTRICT,
-	FOREIGN KEY (seller) REFERENCES user(user_name)
+    FOREIGN KEY (seller) REFERENCES user (user_username)
         on UPDATE CASCADE ON DELETE RESTRICT,
 	FOREIGN KEY (buyer_account) REFERENCES account(account_number)
         on UPDATE CASCADE ON DELETE RESTRICT,
