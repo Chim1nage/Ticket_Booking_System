@@ -178,7 +178,7 @@ public class TerminalController implements IController {
                 }
             }
         } else {
-            List<String> allUser = this.getFieldFromTable("user_name", "user");
+            List<String> allUser = this.getFieldFromTable("user_username", "user");
             List<String> allEmail = this.getFieldFromTable("user_email", "user");
             List<String> allPhone = this.getFieldFromTable("user_phone_number", "user");
             String userName, userPassword, userEmail, userPhoneNumber, userBirthYear;
@@ -327,7 +327,7 @@ public class TerminalController implements IController {
 
                     // Verify Host input password
                     if (inputLoginPassword.equals(password)) {
-                        loggedIn = true;
+                        this.loggedIn = true;
                         System.out.println("Successfully Logged In!");
                         this.loginAccount = inputLoginAccount;
                         this.loginPassword = inputLoginPassword;
@@ -380,7 +380,7 @@ public class TerminalController implements IController {
                         ps.setString(1, inputLoginAccount);
                         ResultSet rs = ps.executeQuery();
                         rs.next();
-                        password = rs.getString("host_password");
+                        password = rs.getString("user_password");
 
                         rs.close();
                         ps.close();
@@ -405,6 +405,278 @@ public class TerminalController implements IController {
                 }
             }
         }
+    }
+
+    private void mainMenu() {
+        if (this.isHost) {
+
+        } else {
+            while (true) {
+                System.out.println("This is the main menu");
+                System.out.println("Please choose to \"buy\" ticket, \"transfer\" ticket, \"modify\" ticket, \"delete\" ticket, or \"exit\" program.");
+                String selection = scanner.nextLine().toLowerCase();
+                switch (selection) {
+                    case "buy":
+                        this.buyTicket();
+                        break;
+                    case "transfer":
+                        this.transferTicket();
+                        break;
+                    case "modify":
+                        this.modifyTicket();
+                        break;
+                    case "delete":
+                        this.deleteTicket();
+                        break;
+                    case "exit":
+                        return;
+                    default:
+                        System.out.println("Invalid selection.");
+                }
+            }
+        }
+    }
+
+    private void buyTicket() {
+    }
+
+    private void transferTicket() {
+    }
+
+    private void modifyTicket() {
+        // Get user current tickets
+        List<Integer> ticketIdList = new ArrayList<>();
+        List<String> bookingDateList = new ArrayList<>();
+        List<String> firstNameList = new ArrayList<>();
+        List<String> lastNameList = new ArrayList<>();
+        List<Integer> seatRowList = new ArrayList<>();
+        List<Integer> seatNumList = new ArrayList<>();
+        List<String> stadiumNameList = new ArrayList<>();
+        List<String> eventNameList = new ArrayList<>();
+        try {
+            PreparedStatement ps = connnection.prepareStatement(
+                    "select t.ticket_id, t.booking_date, t.first_name, t.last_name, " +
+                            "s.seat_row, s.seat_number, st.stadium_name, e.event_name from ticket as t " +
+                            "join seat as s on s.seat_id = t.seat_id " +
+                            "join stadium as st on s.stadium_id = st.stadium_id " +
+                            "join event as e on e.event_id = t.event_id;");
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                ticketIdList.add(rs.getInt("ticket_id"));
+                bookingDateList.add(rs.getString("booking_date"));
+                firstNameList.add(rs.getString("first_name"));
+                lastNameList.add(rs.getString("last_name"));
+                seatRowList.add(rs.getInt("seat_row"));
+                seatNumList.add(rs.getInt("seat_number"));
+                stadiumNameList.add(rs.getString("stadium_name"));
+                eventNameList.add(rs.getString("event_name"));
+            }
+            rs.close();
+            ps.close();
+        } catch (SQLException e) {
+            throw new RuntimeException("Should not reach here. Error: " + e);
+        }
+        if (ticketIdList.isEmpty()) {
+            System.out.println("You do not have any tickets. Returning to main menu.");
+            return;
+        } else {
+            for (int i = 0; i < ticketIdList.size(); i++) {
+                int ticketId = ticketIdList.get(i);
+                String date = bookingDateList.get(i);
+                String firstName = firstNameList.get(i);
+                String lastName = lastNameList.get(i);
+                int seatRow = seatRowList.get(i);
+                int seatNum = seatNumList.get(i);
+                String stadiumName = stadiumNameList.get(i);
+                String eventName = eventNameList.get(i);
+                System.out.println(ticketId + ": " + eventName + " at " + stadiumName + " on " + date
+                        + " for " + firstName + " " + lastName + " with seat on row " + seatRow + " seat number "
+                        + seatNum + ".");
+            }
+        }
+
+        // ticketId to modify
+        int ticket = -1;
+        // Choose which ticket to modify
+        while (true) {
+            System.out.println("Which ticket do you want to modify. Please enter the ticket id or \"b\" to return to main menu.");
+            String selection = scanner.nextLine();
+            try {
+                int t = Integer.parseInt(selection);
+                if (ticketIdList.contains(t)) {
+                    ticket = t;
+                    break;
+                }
+            } catch (NumberFormatException e) {
+                throw new RuntimeException("Should not reach here. Error: " + e);
+            }
+            if (selection.equalsIgnoreCase("b")) {
+                return;
+            } else {
+                System.out.println("Invalid input!");
+            }
+        }
+
+        // Choose what to modify for the ticket
+        while (true) {
+            System.out.println("Do you want to change the \"name\" or \"seat\" of the ticket or \"b\" to return to main menu.");
+            String selection = scanner.nextLine().toLowerCase();
+            if (selection.equals("name")) {
+                System.out.println("Please enter the first name");
+                String firstName = scanner.nextLine();
+                System.out.println("Please enter the last name");
+                String lastName = scanner.nextLine();
+                try {
+                    String updateSQL = "UPDATE ticket SET first_name = ?, last_name = ? WHERE ticket_id = ?";
+                    PreparedStatement ps = connnection.prepareStatement(updateSQL);
+                    ps.setString(1, firstName);
+                    ps.setString(2, lastName);
+                    ps.setInt(3, ticket);
+
+                    // Execute the update
+                    int rowsAffected = ps.executeUpdate();
+                    ps.close();
+                    if (rowsAffected != 1) {
+                        throw new RuntimeException("update error.");
+                    } else {
+                        System.out.println("ticket updated.");
+                        return;
+                    }
+                } catch (SQLException e) {
+                    throw new RuntimeException("Should not reach here. Error: " + e);
+                }
+            } else if (selection.equals("seat")) {
+                List<Integer> availableSeatsRow = new ArrayList<>();
+                List<Integer> availableSeatsNum = new ArrayList<>();
+                // Get all available seats
+                try {
+                    PreparedStatement ps = connnection.prepareStatement("SELECT s.* FROM seat s\n" +
+                            "JOIN event e ON s.stadium_id = e.stadium_id\n" +
+                            "JOIN ticket t ON e.event_id = t.event_id\n" +
+                            "WHERE t.ticket_id = " + ticket + ";");
+                    ResultSet rs = ps.executeQuery();
+                    while (rs.next()) {
+                        if (rs.getBoolean("seat_availability")) {
+                            availableSeatsRow.add(rs.getInt("seat_row"));
+                            availableSeatsNum.add(rs.getInt("seat_number"));
+                        }
+                    }
+                    rs.close();
+                    ps.close();
+                } catch (SQLException e) {
+                    throw new RuntimeException("Should not reach here. Error: " + e);
+                }
+
+                // Print all available seats
+                if (availableSeatsNum.isEmpty()) {
+                    System.out.println("Sorry, there are no more available seats. Please try again later!");
+                    return;
+                } else {
+                    System.out.println("These are the available seats");
+                    for (int i = 0; i < availableSeatsNum.size(); i++) {
+                        int seatNum = availableSeatsNum.get(i);
+                        int seatRow = availableSeatsRow.get(i);
+                        System.out.println("Row: " + seatRow + " number: " + seatNum);
+                    }
+                }
+
+                while (true) {
+                    System.out.print("Please enter desired row: ");
+                    String row = scanner.nextLine();
+                    System.out.println("Please enter desired seat: ");
+                    String seat = scanner.nextLine();
+                    int rowNum = -1;
+                    int seatNum = -1;
+
+                    try {
+                        rowNum = Integer.parseInt(row);
+                        seatNum = Integer.parseInt(seat);
+                    } catch (NumberFormatException e) {
+                        System.out.println("Invalid input, Please try again!");
+                        continue;
+                    }
+
+                    if (availableSeatsRow.contains(rowNum) && availableSeatsNum.contains(seatNum)) {
+                        if (availableSeatsRow.indexOf(rowNum) != availableSeatsNum.indexOf(seatNum)) {
+                            // Update old seat information
+                            try {
+                                String updateOldTicket = "UPDATE seat SET seat_availability = FALSE " +
+                                        "WHERE seat_id IN (SELECT seat_id FROM ticket WHERE ticket_id = ?);";
+                                PreparedStatement ps = connnection.prepareStatement(updateOldTicket);
+                                ps.setInt(1, ticket);
+                                int affectedRows = ps.executeUpdate();
+                                if (affectedRows != 1) {
+                                    throw new RuntimeException("Should not reach here.");
+                                }
+                                ps.close();
+                            } catch (SQLException e) {
+                                throw new RuntimeException("Should not reach here. Error: " + e);
+                            }
+
+                            // Update new seat and ticket information
+                            try {
+                                // Get new seat information
+                                String getNewSeat = "SELECT s.seat_id FROM seat s " +
+                                        "JOIN event e ON s.stadium_id = e.stadium_id " +
+                                        "JOIN ticket t ON e.event_id = t.event_id " +
+                                        "WHERE t.ticket_id = ? " +
+                                        "AND s.seat_row = ? " +
+                                        "AND s.seat_number = ?";
+                                PreparedStatement ps = connnection.prepareStatement(getNewSeat);
+                                ps.setInt(1, ticket);
+                                ps.setInt(2, rowNum);
+                                ps.setInt(3, seatNum);
+                                ResultSet rs = ps.executeQuery();
+                                rs.next();
+                                int newSeatId = rs.getInt("seat_id");
+
+                                // update new seat information
+                                String updateNewSeat = "UPDATE seat " +
+                                        "SET seat_availability = TRUE " +
+                                        "WHERE seat_id = ?;";
+                                ps = connnection.prepareStatement(updateNewSeat);
+                                ps.setInt(1, newSeatId);
+                                int affectedRows = ps.executeUpdate();
+                                if (affectedRows != 1) {
+                                    throw new RuntimeException("Should not reach here.");
+                                }
+
+                                // Update ticket information
+                                String updateTicket = "UPDATE ticket " +
+                                        "SET seat_id = ? " +
+                                        "WHERE ticket_id = ?;";
+                                ps = connnection.prepareStatement(updateTicket);
+                                ps.setInt(1, newSeatId);
+                                ps.setInt(2, ticket);
+                                affectedRows = ps.executeUpdate();
+                                if (affectedRows != 1) {
+                                    throw new RuntimeException("Should not reach here.");
+                                }
+                                ps.close();
+                                rs.close();
+                            } catch (SQLException e) {
+                                throw new RuntimeException("Should not reach here. Error: " + e);
+                            }
+
+                            System.out.println("You have successfully changed your seat.");
+                            return;
+                        }
+                    }
+                    System.out.println("Invalid input! Input \"b\" to return to main menu or any to retry");
+                    String sel = scanner.nextLine().toLowerCase();
+                    if (sel.equals("b")) {
+                        return;
+                    }
+                }
+            } else if (selection.equals("b")) {
+                return;
+            } else {
+                System.out.println("Invalid input.");
+            }
+        }
+    }
+
+    private void deleteTicket() {
     }
 
     /**
@@ -475,6 +747,9 @@ public class TerminalController implements IController {
                 System.out.println("Unknown action");
             }
         }
+
+        // Main menu
+        this.mainMenu();
 
         // Close and End the application
         this.closeApplication();

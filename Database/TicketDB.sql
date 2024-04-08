@@ -39,12 +39,13 @@ CREATE TABLE event (
 );
 
 CREATE TABLE seat (
-    seat_id     	INT AUTO_INCREMENT,
-    seat_section	VARCHAR(32),
-    seat_row    	INT	NOT NULL,
-    seat_number 	INT NOT NULL,
-    seat_type   	ENUM("General Admission", "Box Seats", "Club Seats", "Suites", "Accessible Seats", "Standing Areas", "Other") NOT NULL,
-    stadium_id  	INT,
+                      seat_id           INT AUTO_INCREMENT,
+                      seat_section      VARCHAR(32),
+                      seat_row          INT NOT NULL,
+                      seat_number       INT NOT NULL,
+                      seat_type         ENUM("General Admission", "Box Seats", "Club Seats", "Suites", "Accessible Seats", "Standing Areas", "Other") NOT NULL,
+                      seat_availability BOOLEAN,
+                      stadium_id        INT,
     PRIMARY KEY(seat_id, stadium_id),
     FOREIGN KEY (stadium_id) REFERENCES stadium(stadium_id)
         ON UPDATE CASCADE ON DELETE CASCADE
@@ -124,3 +125,5 @@ CREATE TRIGGER check_buyer_and_seller_are_not_same_on_insert
 		END IF;
 	END$$
 DELIMITER ;
+		
+                            
