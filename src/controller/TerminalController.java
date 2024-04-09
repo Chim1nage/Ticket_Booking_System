@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.Scanner;
+import java.util.HashSet;
+import java.util.Set;
 
 public class TerminalController implements IController {
     /**
@@ -437,10 +439,239 @@ public class TerminalController implements IController {
         }
     }
 
+    private static <T> List<T> findUniqueElements(List<T> list) {
+        Set<T> set = new HashSet<>(list);
+        return new ArrayList<>(set);
+    }
+
+    private static List<Integer> findIndexesOfValue(List<String> list, String value) {
+        List<Integer> indexes = new ArrayList<>();
+        for (int i = 0; i < list.size(); i++) {
+            if (list.get(i).equals(value)) {
+                indexes.add(i);
+            }
+        }
+        return indexes;
+    }
+
+    private static List<String> createListFromIndexes(List<String> list, List<Integer> indexes) {
+        List<String> newList = new ArrayList<>();
+        for (int index : indexes) {
+            if (index >= 0 && index < list.size()) {
+                newList.add(list.get(index));
+            } else {
+                // Handle out-of-bounds indexes
+                System.out.println("Index " + index + " is out of bounds.");
+            }
+        }
+        return newList;
+    }
+
+    public static List<Integer> createListFromIndexesInts(List<Integer> additionalList, List<Integer> indexes) {
+        List<Integer> newList = new ArrayList<>();
+        for (int index : indexes) {
+            if (index >= 0 && index < additionalList.size()) {
+                newList.add(additionalList.get(index));
+            } else {
+                // Handle out-of-bounds indexes
+                System.out.println("Index " + index + " is out of bounds.");
+            }
+        }
+        return newList;
+    }
+
+    private int findEventID() {
+        List<Integer> ticketIdList = new ArrayList<>();
+        List<String> bookingDateList = new ArrayList<>();
+        List<String> stadiumNameList = new ArrayList<>();
+        List<String> eventNameList = new ArrayList<>();
+        List<Integer> eventIdList = new ArrayList<>();
+        String location;
+        String date;
+        try {
+            PreparedStatement ps = connnection.prepareStatement(
+                    "select t.ticket_id, t.booking_date, " +
+                            "s.seat_row, s.seat_number, st.stadium_name, e.event_name, e.event_id from ticket as t " +
+                            "join seat as s on s.seat_id = t.seat_id " +
+                            "join stadium as st on s.stadium_id = st.stadium_id " +
+                            "join event as e on e.event_id = t.event_id;");
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                ticketIdList.add(rs.getInt("ticket_id"));
+                bookingDateList.add(rs.getString("booking_date"));
+                stadiumNameList.add(rs.getString("stadium_name"));
+                eventNameList.add(rs.getString("event_name"));
+                eventIdList.add(rs.getInt("event_id"));
+            }
+            rs.close();
+            ps.close();
+        } catch (SQLException e) {
+            throw new RuntimeException("Should not reach here. Error: " + e);
+        }
+        if (ticketIdList.isEmpty()) {
+            System.out.println("No tickets on sale. Returning to main menu.");
+            return -1;
+    }
+        List<String> uniqueStadiumNameList = findUniqueElements(stadiumNameList);
+        while (true) {
+            System.out.println("Select one of the following locations or \"b\" to return to main menu:");
+            System.out.println(uniqueStadiumNameList + "any");
+            String selection = scanner.nextLine();
+            if (uniqueStadiumNameList.contains(selection)) {
+                location = selection;
+                break;
+            }
+            if (selection.equals("any")) {
+                location = "any";
+                break;
+            }
+            if (selection.equalsIgnoreCase("b")) {
+                return -1;
+            } else {
+                System.out.println("Invalid input!");
+            }
+        }
+        List<Integer> indexes = new ArrayList<>();
+        List<String> uniqueBookingDateList = new ArrayList<>();;
+        if (location.equals("any")) {
+            uniqueBookingDateList = findUniqueElements(bookingDateList);
+            for (int i=0; i < stadiumNameList.size(); i++) {
+                indexes.add(i);
+            }
+        }
+        else {
+            indexes = findIndexesOfValue(stadiumNameList, location);
+            List<String> tempBookingDateList = createListFromIndexes(bookingDateList, indexes);
+            uniqueBookingDateList = findUniqueElements(tempBookingDateList);
+        }
+        while(true) {
+            System.out.println("Select one of the following dates or \"b\" to return to main menu:");
+            System.out.println(uniqueBookingDateList + "any");
+            String selection = scanner.nextLine();
+            if (uniqueBookingDateList.contains(selection)) {
+                date = selection;
+                break;
+            }
+            if (selection.equals("any")) {
+                date = "any";
+                break;
+            }
+            if (selection.equalsIgnoreCase("b")) {
+                return -1;
+            } else {
+                System.out.println("Invalid input!");
+            }
+        }
+        List<Integer> indexes2  = new ArrayList<>();
+        List<Integer> eventList = new ArrayList<>();;
+        if (location.equals("any")) {
+            for (int i=0; i < bookingDateList.size(); i++) {
+                indexes2.add(i);
+            }
+        }
+        else {
+            indexes2 = findIndexesOfValue(bookingDateList, date);
+        }
+        List<Integer> eventIndexes = new ArrayList<>();
+        for (int num : indexes) {
+            if (indexes2.contains(num)) {
+                eventIndexes.add(num);
+            }
+        }
+        eventList = createListFromIndexesInts(eventIdList, eventIndexes);
+        while(true) {
+            System.out.println("Select one of the following events or \"b\" to return to main menu:");
+            System.out.println(eventList);
+            String selection = scanner.nextLine();
+            int t = Integer.parseInt(selection);
+            if (eventList.contains(t)) {
+                return t;
+            }
+            if (selection.equalsIgnoreCase("b")) {
+                return -1;
+            } else {
+                System.out.println("Invalid input!");
+            }
+        }
+    }
+
     private void buyTicket() {
+        List<Integer> ticketIdList = new ArrayList<>();
+        List<String> firstNameList = new ArrayList<>();
+        List<String> lastNameList = new ArrayList<>();
+        List<Integer> seatRowList = new ArrayList<>();
+        List<Integer> seatNumList = new ArrayList<>();
+        List<Integer> eventIdList = new ArrayList<>();
+        int eventID = findEventID();
+        if (eventID == -1) {
+            return;
+        }
+        try {
+            PreparedStatement ps = connnection.prepareStatement(
+                    "select t.ticket_id, t.first_name, t.last_name, " +
+                            "s.seat_row, s.seat_number, e.event_id from ticket as t " +
+                            "join seat as s on s.seat_id = t.seat_id " +
+                            "join event as e on e.event_id = t.event_id;");
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                ticketIdList.add(rs.getInt("ticket_id"));
+                firstNameList.add(rs.getString("first_name"));
+                lastNameList.add(rs.getString("last_name"));
+                seatRowList.add(rs.getInt("seat_row"));
+                seatNumList.add(rs.getInt("seat_number"));
+                eventIdList.add(rs.getInt("event_id"));
+            }
+            rs.close();
+            ps.close();
+        } catch (SQLException e) {
+            throw new RuntimeException("Should not reach here. Error: " + e);
+        }
+        if (seatNumList.isEmpty()) {
+            System.out.println("Sorry, there are no more available seats. Please try again later!");
+            return;
+        } else {
+            System.out.println("These are the available seats");
+            for (int i = 0; i < seatNumList.size(); i++) {
+                int seatNum = seatNumList.get(i);
+                int seatRow = seatNumList.get(i);
+                System.out.println("Row: " + seatRow + " number: " + seatNum);
+            }
+        }
+
+        while (true) {
+            System.out.print("Please enter desired row: ");
+            String row = scanner.nextLine();
+            System.out.println("Please enter desired seat: ");
+            String seat = scanner.nextLine();
+            int rowNum = -1;
+            int seatNum = -1;
+
+            try {
+                rowNum = Integer.parseInt(row);
+                seatNum = Integer.parseInt(seat);
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid input, Please try again!");
+                continue;
+            }
+            if (seatNumList.isEmpty()) {
+                System.out.println("Sorry, there are no more available seats. Please try again later!");
+                return;
+            } else {
+                System.out.println("These are the available seats");
+                for (int i = 0; i < seatNumList.size(); i++) {
+                    int seatNum = seatNumList.get(i);
+                    int seatRow = seatNumList.get(i);
+                    System.out.println("Row: " + seatRow + " number: " + seatNum);
+                }
+            }
+        }
     }
 
     private void transferTicket() {
+        int eventID = findEventID();
+        if (eventID == -1) {
+            return;
+        }
     }
 
     private void modifyTicket() {
