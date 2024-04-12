@@ -86,7 +86,7 @@ CREATE TABLE account_user(
 
 CREATE TABLE ticket(
     ticket_id       INT PRIMARY KEY AUTO_INCREMENT,
-    booking_date    DATE NOT NULL,
+    booking_date DATE,
     price           INT NOT NULL,
     first_name      VARCHAR(255) DEFAULT "",
     last_name       VARCHAR(255) DEFAULT "",
@@ -97,6 +97,7 @@ CREATE TABLE ticket(
     seller			VARCHAR(255),
     buyer_account	INT,
     seller_account	INT,
+    UNIQUE (seat_id, stadium_id, event_id),
 	FOREIGN KEY (seat_id) REFERENCES seat(seat_id)
         on UPDATE CASCADE ON DELETE RESTRICT,
 	FOREIGN KEY (stadium_id) REFERENCES stadium(stadium_id)
