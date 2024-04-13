@@ -1332,6 +1332,7 @@ public class TerminalController implements IController {
     }
 
     private void deleteEvent() {
+        // Get all current events
         List<Integer> eventIdList = new ArrayList<>();
         List<String> eventNameList = new ArrayList<>();
         List<String> eventDateList = new ArrayList<>();
@@ -1357,12 +1358,14 @@ public class TerminalController implements IController {
             throw new RuntimeException("Should not reach here. Error: " + e);
         }
 
+        // Output all current events
         System.out.println("Current events: ");
         for (int i = 0; i < eventIdList.size(); i++) {
             System.out.println("Event ID: " + eventIdList.get(i) + ", Event name: " + eventNameList.get(i) +
                     ", Date: " + eventDateList.get(i) + ", Type: " + eventTypeList.get(i) + ", Stadium: " + stadiumNameList.get(i));
         }
 
+        // Let host select event
         int eventId = -1;
         while (true) {
             System.out.println("Please enter the id of the event you want to delete");
@@ -1394,7 +1397,48 @@ public class TerminalController implements IController {
             }
         }
 
+        // Delete all tickets related to the event
+        List<Integer> ticketNeedToBeDeleted = new ArrayList<>();
+        try {
+            String query = "SELECT ticket_id FROM ticket WHERE event_id = ?;";
+            PreparedStatement ps = connection.prepareStatement(query);
+            ps.setInt(1, eventId);
+            ResultSet rs = ps.executeQuery();
 
+            while (rs.next()) {
+                ticketNeedToBeDeleted.add(rs.getInt("ticket_id"));
+            }
+
+            for (Integer integer : ticketNeedToBeDeleted) {
+                query = "DELETE FROM ticket WHERE ticket_id = ?;";
+                ps = connection.prepareStatement(query);
+                ps.setInt(1, integer);
+                int rows_affected = ps.executeUpdate();
+                if (rows_affected != 1) {
+                    throw new RuntimeException("Should not reach here. Error: " + rows_affected);
+                }
+            }
+            rs.close();
+            ps.close();
+        } catch (SQLException e) {
+            throw new RuntimeException("Should not reach here. Error: " + e);
+        }
+        System.out.println("Successfully deleted all tickets related to the event.");
+
+        // Delete Event
+        try {
+            String query = "DELETE FROM event WHERE event_id = ?;";
+            PreparedStatement ps = connection.prepareStatement(query);
+            ps.setInt(1, eventId);
+
+            int rowAffected = ps.executeUpdate();
+            if (rowAffected != 1) {
+                throw new RuntimeException("Should not reach here. Error: " + rowAffected);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Should not reach here. Error: " + e);
+        }
+        System.out.println("Successfully deleted event.");
     }
 
     /**
