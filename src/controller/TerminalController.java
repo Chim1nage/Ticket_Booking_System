@@ -152,7 +152,7 @@ public class TerminalController implements IController {
                 String createAccount = scanner.nextLine();
                 if (createAccount.equalsIgnoreCase("y")) {
                     try {
-                        String sql = "INSERT INTO host VALUES (?, ?, ?, ?, ?, ?, ?)";
+                        String sql = "{CALL add_host(?, ?, ?, ?, ?, ?, ?)}";
                         PreparedStatement statement = connection.prepareStatement(sql);
                         statement.setString(1, regUserName);
                         statement.setString(2, regPassword);
@@ -245,7 +245,7 @@ public class TerminalController implements IController {
                 String createAccount = scanner.nextLine();
                 if (createAccount.equalsIgnoreCase("y")) {
                     try {
-                        String sql = "INSERT INTO user VALUES (?, ?, ?, ?, ?)";
+                        String sql = "{CALL add_user(?, ?, ?, ?, ?)}";
                         PreparedStatement statement = connection.prepareStatement(sql);
                         statement.setString(1, userName);
                         statement.setString(2, userPassword);
@@ -305,7 +305,7 @@ public class TerminalController implements IController {
             List<String> allHostEmails = new ArrayList<>();
             List<String> allHostPhoneNumbers = new ArrayList<>();
             try {
-                String query = "SELECT host_username, host_email, host_phone_number FROM host";
+                String query = "{CALL get_all_host()}";
                 PreparedStatement ps = connection.prepareStatement(query);
                 ResultSet rs = ps.executeQuery();
 
@@ -403,7 +403,7 @@ public class TerminalController implements IController {
             List<String> allUserEmails = new ArrayList<>();
             List<String> allUserPhoneNumbers = new ArrayList<>();
             try {
-                String query = "SELECT user_username, user_email, user_phone_number FROM user";
+                String query = "{CALL get_all_user()}";
                 PreparedStatement ps = connection.prepareStatement(query);
                 ResultSet rs = ps.executeQuery();
 
@@ -478,7 +478,7 @@ public class TerminalController implements IController {
         System.out.println("This is the main menu");
         if (this.isHost) {
             while (true) {
-                System.out.println("Please choose to \"create event\", \"delete event\"");
+                System.out.println("Please choose to \"create event\", \"delete event\", or \"quit\" to exit application");
                 String selection = scanner.nextLine().toLowerCase();
                 switch (selection) {
                     case "create event":
@@ -487,6 +487,10 @@ public class TerminalController implements IController {
                     case "delete event":
                         this.deleteEvent();
                         break;
+                    case "quit":
+                        return;
+                    default:
+                        throw new RuntimeException("Should not reach here");
                 }
             }
         } else {
@@ -495,10 +499,10 @@ public class TerminalController implements IController {
                 String selection = scanner.nextLine().toLowerCase();
                 switch (selection) {
                     case "buy":
-                        this.buyTicket();
+//                        this.buyTicket();
                         break;
                     case "transfer":
-                        this.transferTicket();
+//                        this.transferTicket();
                         break;
                     case "modify":
                         this.modifyTicket();
@@ -759,15 +763,14 @@ public class TerminalController implements IController {
         List<Integer> seatRowList = new ArrayList<>();
         List<Integer> seatNumList = new ArrayList<>();
         List<String> stadiumNameList = new ArrayList<>();
+        List<Integer> stadiumIdList = new ArrayList<>();
         List<String> eventNameList = new ArrayList<>();
+        List<Integer> eventIdList = new ArrayList<>();
         try {
-            PreparedStatement ps = connection.prepareStatement(
-                    "select t.ticket_id, t.booking_date, t.first_name, t.last_name, " +
-                            "s.seat_row, s.seat_number, st.stadium_name, e.event_name from ticket as t " +
-                            "join seat as s on s.seat_id = t.seat_id " +
-                            "join stadium as st on s.stadium_id = st.stadium_id " +
-                            "join event as e on e.event_id = t.event_id;");
+            PreparedStatement ps = connection.prepareStatement("{CALL get_all_ticket_information_related_to_user(?)}");
+            ps.setString(1, this.loginAccount);
             ResultSet rs = ps.executeQuery();
+
             while (rs.next()) {
                 ticketIdList.add(rs.getInt("ticket_id"));
                 bookingDateList.add(rs.getString("booking_date"));
@@ -775,7 +778,9 @@ public class TerminalController implements IController {
                 lastNameList.add(rs.getString("last_name"));
                 seatRowList.add(rs.getInt("seat_row"));
                 seatNumList.add(rs.getInt("seat_number"));
+                stadiumIdList.add(rs.getInt("stadium_id"));
                 stadiumNameList.add(rs.getString("stadium_name"));
+                eventIdList.add(rs.getInt("event_id"));
                 eventNameList.add(rs.getString("event_name"));
             }
             rs.close();
@@ -824,6 +829,11 @@ public class TerminalController implements IController {
             }
         }
 
+        // Get corresponding event id
+        int index = ticketIdList.indexOf(ticket);
+        int eventId = eventIdList.get(index);
+        int stadiumId = stadiumIdList.get(index);
+
         // Choose what to modify for the ticket
         while (true) {
             System.out.println("Do you want to change the \"name\" or \"seat\" of the ticket or \"b\" to return to main menu.");
@@ -834,8 +844,8 @@ public class TerminalController implements IController {
                 System.out.println("Please enter the last name");
                 String lastName = scanner.nextLine();
                 try {
-                    String updateSQL = "UPDATE ticket SET first_name = ?, last_name = ? WHERE ticket_id = ?";
-                    PreparedStatement ps = connection.prepareStatement(updateSQL);
+                    String query = "{CALL update_ticket_name(?, ?, ?)}";
+                    PreparedStatement ps = connection.prepareStatement(query);
                     ps.setString(1, firstName);
                     ps.setString(2, lastName);
                     ps.setInt(3, ticket);
@@ -857,16 +867,12 @@ public class TerminalController implements IController {
                 List<Integer> availableSeatsNum = new ArrayList<>();
                 // Get all available seats
                 try {
-                    PreparedStatement ps = connection.prepareStatement("SELECT s.* FROM seat s\n" +
-                            "JOIN event e ON s.stadium_id = e.stadium_id\n" +
-                            "JOIN ticket t ON e.event_id = t.event_id\n" +
-                            "WHERE t.ticket_id = " + ticket + ";");
+                    PreparedStatement ps = connection.prepareStatement("{CALL get_all_empty_seat_from_stadium_for_event(?)}");
+                    ps.setInt(1, eventId);
                     ResultSet rs = ps.executeQuery();
                     while (rs.next()) {
-                        if (rs.getBoolean("seat_availability")) {
-                            availableSeatsRow.add(rs.getInt("seat_row"));
-                            availableSeatsNum.add(rs.getInt("seat_number"));
-                        }
+                        availableSeatsRow.add(rs.getInt("seat_row"));
+                        availableSeatsNum.add(rs.getInt("seat_number"));
                     }
                     rs.close();
                     ps.close();
@@ -904,13 +910,40 @@ public class TerminalController implements IController {
                     }
 
                     if (availableSeatsRow.contains(rowNum) && availableSeatsNum.contains(seatNum)) {
-                        if (availableSeatsRow.indexOf(rowNum) != availableSeatsNum.indexOf(seatNum)) {
-                            // Update old seat information
+                        List<Integer> numOfRows = new ArrayList<>();
+                        for (int i = 0; i < availableSeatsRow.size(); i++) {
+                            if (availableSeatsRow.get(i).equals(rowNum)) {
+                                numOfRows.add(availableSeatsNum.get(i));
+                            }
+                        }
+                        if (numOfRows.contains(seatNum)) {
+                            String bkDate = "";
+                            String firstN, lastN;
+                            // Get old ticket information
                             try {
-                                String updateOldTicket = "UPDATE seat SET seat_availability = FALSE " +
-                                        "WHERE seat_id IN (SELECT seat_id FROM ticket WHERE ticket_id = ?);";
+                                String query = "{CALL get_ticket(?)}";
+                                PreparedStatement ps = connection.prepareStatement(query);
+                                ps.setInt(1, ticket);
+                                ResultSet rs = ps.executeQuery();
+
+                                if (rs.next()) {
+                                    bkDate = rs.getString("booking_date");
+                                    firstN = rs.getString("first_name");
+                                    lastN = rs.getString("last_name");
+                                } else {
+                                    System.out.println("Fail to fetch old information");
+                                    return;
+                                }
+                            } catch (SQLException e) {
+                                throw new RuntimeException("Should not reach here. Error: " + e);
+                            }
+
+                            // Reset old ticket information
+                            try {
+                                String updateOldTicket = "{CALL reset_ticket_trading_information(?)}";
                                 PreparedStatement ps = connection.prepareStatement(updateOldTicket);
                                 ps.setInt(1, ticket);
+
                                 int affectedRows = ps.executeUpdate();
                                 if (affectedRows != 1) {
                                     throw new RuntimeException("Should not reach here.");
@@ -923,42 +956,40 @@ public class TerminalController implements IController {
                             // Update new seat and ticket information
                             try {
                                 // Get new seat information
-                                String getNewSeat = "SELECT s.seat_id FROM seat s " +
-                                        "JOIN event e ON s.stadium_id = e.stadium_id " +
-                                        "JOIN ticket t ON e.event_id = t.event_id " +
-                                        "WHERE t.ticket_id = ? " +
-                                        "AND s.seat_row = ? " +
-                                        "AND s.seat_number = ?";
-                                PreparedStatement ps = connection.prepareStatement(getNewSeat);
-                                ps.setInt(1, ticket);
-                                ps.setInt(2, rowNum);
-                                ps.setInt(3, seatNum);
+                                int newSeatId = -1;
+                                PreparedStatement ps = connection.prepareStatement("{CALL get_seat_from_row_number_stadium(?, ?, ?)}");
+                                ps.setInt(1, rowNum);
+                                ps.setInt(2, seatNum);
+                                ps.setInt(3, stadiumId);
                                 ResultSet rs = ps.executeQuery();
-                                rs.next();
-                                int newSeatId = rs.getInt("seat_id");
+                                if (rs.next()) {
+                                    newSeatId = rs.getInt("seat_id");
+                                }
 
-                                // update new seat information
-                                String updateNewSeat = "UPDATE seat " +
-                                        "SET seat_availability = TRUE " +
-                                        "WHERE seat_id = ?;";
-                                ps = connection.prepareStatement(updateNewSeat);
+                                // Get new ticket id
+                                int newTicketId = -1;
+                                ps = connection.prepareStatement("{CALL get_ticket_from_seat_stadium_event(?, ?, ?)}");
                                 ps.setInt(1, newSeatId);
+                                ps.setInt(2, stadiumId);
+                                ps.setInt(3, eventId);
+                                rs = ps.executeQuery();
+                                if (rs.next()) {
+                                    newTicketId = rs.getInt("ticket_id");
+                                }
+
+                                // Update ticket information
+                                ps = connection.prepareStatement("{CALL update_ticket(?, ?, ?, ?, ?)}");
+                                ps.setString(1, bkDate);
+                                ps.setString(2, firstN);
+                                ps.setString(3, lastN);
+                                ps.setString(4, this.loginAccount);
+                                ps.setInt(5, newTicketId);
+
                                 int affectedRows = ps.executeUpdate();
                                 if (affectedRows != 1) {
                                     throw new RuntimeException("Should not reach here.");
                                 }
 
-                                // Update ticket information
-                                String updateTicket = "UPDATE ticket " +
-                                        "SET seat_id = ? " +
-                                        "WHERE ticket_id = ?;";
-                                ps = connection.prepareStatement(updateTicket);
-                                ps.setInt(1, newSeatId);
-                                ps.setInt(2, ticket);
-                                affectedRows = ps.executeUpdate();
-                                if (affectedRows != 1) {
-                                    throw new RuntimeException("Should not reach here.");
-                                }
                                 ps.close();
                                 rs.close();
                             } catch (SQLException e) {
@@ -996,12 +1027,8 @@ public class TerminalController implements IController {
         List<String> stadiumNameList = new ArrayList<>();
         List<String> eventNameList = new ArrayList<>();
         try {
-            PreparedStatement ps = connection.prepareStatement(
-                    "select t.ticket_id, t.booking_date, t.price, t.first_name, t.last_name, t.seat_id, " +
-                            "s.seat_row, s.seat_number, st.stadium_name, e.event_name from ticket as t " +
-                            "join seat as s on s.seat_id = t.seat_id " +
-                            "join stadium as st on s.stadium_id = st.stadium_id " +
-                            "join event as e on e.event_id = t.event_id;");
+            PreparedStatement ps = connection.prepareStatement("{CALL get_all_ticket_information_related_to_user(?)}");
+            ps.setString(1, loginAccount);
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 ticketIdList.add(rs.getInt("ticket_id"));
@@ -1021,24 +1048,24 @@ public class TerminalController implements IController {
             throw new RuntimeException("Should not reach here. Error: " + e);
         }
 
+        // Print all current tickets
         if (ticketIdList.isEmpty()) {
             System.out.println("You do not have any tickets. Returning to main menu.");
             return;
-        } else {
-            for (int i = 0; i < ticketIdList.size(); i++) {
-                int ticketId = ticketIdList.get(i);
-                String date = bookingDateList.get(i);
-                int price = priceList.get(i);
-                String firstName = firstNameList.get(i);
-                String lastName = lastNameList.get(i);
-                int seatRow = seatRowList.get(i);
-                int seatNum = seatNumList.get(i);
-                String stadiumName = stadiumNameList.get(i);
-                String eventName = eventNameList.get(i);
-                System.out.println(ticketId + ": " + eventName + " at " + stadiumName + " on " + date
-                        + " for " + firstName + " " + lastName + " with seat on row " + seatRow + " seat number "
-                        + seatNum + " with price " + price);
-            }
+        }
+        for (int i = 0; i < ticketIdList.size(); i++) {
+            int ticketId = ticketIdList.get(i);
+            String date = bookingDateList.get(i);
+            int price = priceList.get(i);
+            String firstName = firstNameList.get(i);
+            String lastName = lastNameList.get(i);
+            int seatRow = seatRowList.get(i);
+            int seatNum = seatNumList.get(i);
+            String stadiumName = stadiumNameList.get(i);
+            String eventName = eventNameList.get(i);
+            System.out.println(ticketId + ": " + eventName + " at " + stadiumName + " on " + date
+                    + " for " + firstName + " " + lastName + " with seat on row " + seatRow + " seat number "
+                    + seatNum + " with price " + price);
         }
 
         // ticketId to modify
@@ -1077,29 +1104,30 @@ public class TerminalController implements IController {
         }
 
         // Modify the seat availability status
+//        try {
+//            String query = "UPDATE seat SET seat_availability = FALSE WHERE seat_id = ?";
+//            PreparedStatement ps = connection.prepareStatement(query);
+//            ps.setInt(1, seatIdList.get(index));
+//            int affectedRows = ps.executeUpdate();
+//            if (affectedRows != 1) {
+//                throw new RuntimeException("Should not reach here.");
+//            }
+//            ps.close();
+//        } catch (SQLException e) {
+//            throw new RuntimeException("Should not reach here. Error: " + e);
+//        }
+
+        // Modify the ticket information
         try {
-            String query = "UPDATE seat SET seat_availability = FALSE WHERE seat_id = ?";
+            String query = "{CALL reset_ticket_trading_information(?)}";
             PreparedStatement ps = connection.prepareStatement(query);
-            ps.setInt(1, seatIdList.get(index));
+            ps.setInt(1, ticket);
+
             int affectedRows = ps.executeUpdate();
             if (affectedRows != 1) {
                 throw new RuntimeException("Should not reach here.");
             }
             ps.close();
-        } catch (SQLException e) {
-            throw new RuntimeException("Should not reach here. Error: " + e);
-        }
-
-        // Modify the ticket information
-        try {
-            String query = "UPDATE TICKET SET booking_date = null, buyer = null, seller = null, " +
-                    "buyer_account = null, seller_account = null WHERE ticket_id = ?";
-            PreparedStatement ps = connection.prepareStatement(query);
-            ps.setInt(1, ticket);
-            int affectedRows = ps.executeUpdate();
-            if (affectedRows != 1) {
-                throw new RuntimeException("Should not reach here.");
-            }
         } catch (SQLException e) {
             throw new RuntimeException("Should not reach here. Error: " + e);
         }
@@ -1116,7 +1144,7 @@ public class TerminalController implements IController {
         List<String> eventTypeList = new ArrayList<>();
         List<Integer> eventStadiumList = new ArrayList<>();
         try {
-            String query = "select event_name, event_date, event_type, stadium_id from event";
+            String query = "{CALL get_all_event()}";
             PreparedStatement ps = connection.prepareStatement(query);
             ResultSet rs = ps.executeQuery();
 
@@ -1160,7 +1188,7 @@ public class TerminalController implements IController {
         List<String> stadiumCityList = new ArrayList<>();
         List<String> stadiumCountryList = new ArrayList<>();
         try {
-            String query = "SELECT * from stadium";
+            String query = "{CALL get_all_stadium()}";
             PreparedStatement ps = connection.prepareStatement(query);
             ResultSet rs = ps.executeQuery();
 
@@ -1194,7 +1222,7 @@ public class TerminalController implements IController {
         while (true) {
             System.out.println("Please enter the ID of the stadium you wish to host the event or \"b\" to return to main menu.");
             String stadium = scanner.nextLine();
-            Integer stadiumTempId;
+            int stadiumTempId;
             if (stadium.equalsIgnoreCase("b")) {
                 return;
             }
@@ -1240,7 +1268,7 @@ public class TerminalController implements IController {
         // Create Event
         int eventId = -1;
         try {
-            String query = "INSERT INTO event(event_name, event_date, event_type, stadium_id, host_username) VALUES (?, ?, ?, ?, ?)";
+            String query = "{CALL create_event(?,?,?,?,?)}";
             PreparedStatement ps = connection.prepareStatement(query);
             ps.setString(1, eventName);
             ps.setString(2, eventDate);
@@ -1255,14 +1283,15 @@ public class TerminalController implements IController {
                 System.out.println("Successfully created event.");
             }
 
-            query = "SELECT event_id FROM event where event_name = ? AND event_date = ? AND event_type = ? AND stadium_id = ?";
+            query = "{CALL get_event_id(?, ?, ?, ?, ?)}";
             ps = connection.prepareStatement(query);
             ps.setString(1, eventName);
             ps.setString(2, eventDate);
             ps.setString(3, eventType);
             ps.setInt(4, stadiumId);
-            ResultSet rs = ps.executeQuery();
+            ps.setString(5, this.loginAccount);
 
+            ResultSet rs = ps.executeQuery();
             rs.next();
             eventId = rs.getInt("event_id");
 
@@ -1276,7 +1305,7 @@ public class TerminalController implements IController {
         // Get all the seats from the stadium
         List<Integer> seatIdList = new ArrayList<>();
         try {
-            String query = "SELECT seat_id FROM seat WHERE stadium_id = ?";
+            String query = "{CALL get_all_seat_id_from_stadium(?)}";
             PreparedStatement ps = connection.prepareStatement(query);
             ps.setInt(1, stadiumId);
             ResultSet rs = ps.executeQuery();
@@ -1311,7 +1340,7 @@ public class TerminalController implements IController {
         // Create tickets for the event
         for (int i = 0; i < seatIdList.size(); i++) {
             try {
-                String query = "INSERT INTO ticket(price, seat_id, stadium_id, event_id) VALUES (?, ?, ?, ?);";
+                String query = "{CALL create_ticket(?, ?, ?, ?)}";
                 PreparedStatement ps = connection.prepareStatement(query);
                 ps.setInt(1, price);
                 ps.setInt(2, seatIdList.get(i));
@@ -1339,8 +1368,7 @@ public class TerminalController implements IController {
         List<String> eventTypeList = new ArrayList<>();
         List<String> stadiumNameList = new ArrayList<>();
         try {
-            String query = "SELECT e.event_id, e.event_name, e.event_date, e.event_type, s.stadium_name FROM event AS e " +
-                    "JOIN stadium AS s ON s.stadium_id = e.stadium_id";
+            String query = "{CALL get_all_event_with_stadium_name()}";
             PreparedStatement ps = connection.prepareStatement(query);
             ResultSet rs = ps.executeQuery();
 
@@ -1351,7 +1379,6 @@ public class TerminalController implements IController {
                 eventTypeList.add(rs.getString("event_type"));
                 stadiumNameList.add(rs.getString("stadium_name"));
             }
-
             ps.close();
             rs.close();
         } catch (SQLException e) {
@@ -1398,36 +1425,21 @@ public class TerminalController implements IController {
         }
 
         // Delete all tickets related to the event
-        List<Integer> ticketNeedToBeDeleted = new ArrayList<>();
         try {
-            String query = "SELECT ticket_id FROM ticket WHERE event_id = ?;";
+            String query = "{CALL delete_all_ticket_related_to_event(?)}";
             PreparedStatement ps = connection.prepareStatement(query);
             ps.setInt(1, eventId);
-            ResultSet rs = ps.executeQuery();
 
-            while (rs.next()) {
-                ticketNeedToBeDeleted.add(rs.getInt("ticket_id"));
-            }
-
-            for (Integer integer : ticketNeedToBeDeleted) {
-                query = "DELETE FROM ticket WHERE ticket_id = ?;";
-                ps = connection.prepareStatement(query);
-                ps.setInt(1, integer);
-                int rows_affected = ps.executeUpdate();
-                if (rows_affected != 1) {
-                    throw new RuntimeException("Should not reach here. Error: " + rows_affected);
-                }
-            }
-            rs.close();
+            int affectedRows = ps.executeUpdate();
+            System.out.println(affectedRows + " tickets deleted.");
             ps.close();
         } catch (SQLException e) {
             throw new RuntimeException("Should not reach here. Error: " + e);
         }
-        System.out.println("Successfully deleted all tickets related to the event.");
 
         // Delete Event
         try {
-            String query = "DELETE FROM event WHERE event_id = ?;";
+            String query = "{CALL delete_event(?)}";
             PreparedStatement ps = connection.prepareStatement(query);
             ps.setInt(1, eventId);
 
@@ -1435,10 +1447,10 @@ public class TerminalController implements IController {
             if (rowAffected != 1) {
                 throw new RuntimeException("Should not reach here. Error: " + rowAffected);
             }
+            System.out.println("Event deleted.");
         } catch (SQLException e) {
             throw new RuntimeException("Should not reach here. Error: " + e);
         }
-        System.out.println("Successfully deleted event.");
     }
 
     /**
@@ -1452,7 +1464,9 @@ public class TerminalController implements IController {
     private List<String> getFieldFromTable(String field, String table) {
         List<String> result = new ArrayList<>();
         try {
-            PreparedStatement ps = connection.prepareStatement("select " + field + " from " + table);
+            PreparedStatement ps = connection.prepareStatement("{CALL get_field_from_table(?, ?)}");
+            ps.setString(1, field);
+            ps.setString(2, table);
             ResultSet rs = ps.executeQuery();
 
             while (rs.next()) {
@@ -1529,66 +1543,6 @@ public class TerminalController implements IController {
             e.printStackTrace();
         }
     }
-//    /**
-//     * Get all vendors
-//     */
-//    public void getVendorList() throws SQLException {
-//        PreparedStatement ps = connnection.prepareStatement("select vendor_name from vendors");
-//        ResultSet rs = ps.executeQuery();
-//        while (rs.next()) {
-//            vendorList.add(rs.getString("vendor_name"));
-//            System.out.println(rs.getString(1));
-//        }
-//        rs.close();
-//        ps.close();
-//    }
-//
-//    /**
-//     * Prompt user for town, state input and validate it
-//     */
-//    public void validateVendor() {
-//        System.out.println("Please enter vendor name");
-//
-//        while (true) {
-//            vendorName = scanner.nextLine();
-//            if ((vendorName != "")) {
-//                System.out.println(vendorName);
-//                if (vendorList.contains(vendorName)) {
-//                    break;
-//                }
-//                System.out.println("Invalid vendor name, please retry");
-//            }
-//        }
-//    }
-//
-//    /**
-//     * Print all the vendors tuples from the  table
-//     */
-//    public void printTownList() {
-//        System.out.println(Arrays.toString(vendorList.toArray()));
-//    }
-//
-//    public void allInvoices(String vendor_p) {
-//        String query = "{CALL get_invoices(?)}";
-//        try {
-//            CallableStatement stmt = connnection.prepareCall(query);
-//            stmt.setString(1, vendor_p);
-//
-//            ResultSet rs = stmt.executeQuery();
-//
-//            System.out.println("Printing invoice data ");
-//            while (rs.next()) {
-//                System.out.printf("Invoice id %d vendor id %d date %tB %<te,  %<tY\n",
-//                        rs.getInt(1),
-//                        rs.getInt(2),
-//                        rs.getDate(3)
-//                );
-//            }
-//        } catch (SQLException e) {
-//            System.out.println("Could not retrieve invoices");
-//            e.printStackTrace();
-//        }
-//    }
 }
 
 
