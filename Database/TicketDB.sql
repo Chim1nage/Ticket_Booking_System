@@ -5,7 +5,7 @@ USE TicketDB;
 CREATE TABLE stadium (
     stadium_id 		INT AUTO_INCREMENT PRIMARY KEY,
     stadium_name 	VARCHAR(255) NOT NULL,
-    capacity 		INT,
+    capacity INT NOT NULL,
     address_line_1	VARCHAR(255) NOT NULL,
     address_line_2	VARCHAR(255),
     city			VARCHAR(64) NOT NULL,
@@ -39,12 +39,12 @@ CREATE TABLE event (
 );
 
 CREATE TABLE seat (
-                      seat_id           INT AUTO_INCREMENT,
-                      seat_section      VARCHAR(32),
-                      seat_row          INT NOT NULL,
-                      seat_number       INT NOT NULL,
-                      seat_type         ENUM("General Admission", "Box Seats", "Club Seats", "Suites", "Accessible Seats", "Standing Areas", "Other") NOT NULL,
-                      stadium_id        INT,
+                      seat_id      INT AUTO_INCREMENT,
+                      seat_section VARCHAR(32),
+                      seat_row     INT NOT NULL,
+                      seat_number  INT NOT NULL,
+                      seat_type    ENUM("General Admission", "Box Seats", "Club Seats", "Suites", "Accessible Seats", "Standing Areas", "Other") NOT NULL,
+                      stadium_id   INT,
     PRIMARY KEY(seat_id, stadium_id),
     FOREIGN KEY (stadium_id) REFERENCES stadium(stadium_id)
         ON UPDATE CASCADE ON DELETE CASCADE
@@ -69,13 +69,13 @@ CREATE TABLE user (
 );
 
 CREATE TABLE account(
-    account_number  INT PRIMARY KEY,
+                        account_number VARCHAR(19) PRIMARY KEY,
     account_type    ENUM("Checking Account", "Savings Account", "Credit Card Account", "Debit Card Account")
 );
 
 CREATE TABLE account_user(
-    account_number 	INT NOT NULL,
-    user_username VARCHAR(255) NOT NULL,
+                             account_number VARCHAR(19)  NOT NULL,
+                             user_username  VARCHAR(255) NOT NULL,
     PRIMARY KEY (account_number, user_username),
     FOREIGN KEY (account_number) REFERENCES account(account_number)
         ON UPDATE CASCADE ON DELETE CASCADE,
@@ -85,7 +85,7 @@ CREATE TABLE account_user(
 
 CREATE TABLE ticket(
     ticket_id       INT PRIMARY KEY AUTO_INCREMENT,
-    booking_date DATE,
+    booking_date   DATE,
     price           INT NOT NULL,
     first_name      VARCHAR(255) DEFAULT "",
     last_name       VARCHAR(255) DEFAULT "",
@@ -94,8 +94,8 @@ CREATE TABLE ticket(
     event_id        INT NOT NULL,
     buyer			VARCHAR(255),
     seller			VARCHAR(255),
-    buyer_account	INT,
-    seller_account	INT,
+    buyer_account  VARCHAR(19),
+    seller_account VARCHAR(19),
     UNIQUE (seat_id, stadium_id, event_id),
 	FOREIGN KEY (seat_id) REFERENCES seat(seat_id)
         on UPDATE CASCADE ON DELETE RESTRICT,
@@ -113,7 +113,58 @@ CREATE TABLE ticket(
         on UPDATE CASCADE ON DELETE RESTRICT
 );
 
--- TRIGGERS
+
+-- -------------------------- INSERT VALUES INTO EXISTING TABLES
+-- Add admin host value
+INSERT INTO host
+VALUES ("admin", "admin", "admin@hotmail.com", "1234567890", "admin", "admin", "2000-01-01");
+
+-- Add admin user value
+INSERT INTO user
+VALUES ("admin", "admin", "admin@hotmail.com", "1234567890", "2000");
+
+-- Add stadium value
+INSERT INTO stadium(stadium_name, capacity, address_line_1, city, state, country, zip_code)
+VALUES ("Trafford Stadium", 74310, "Sir Matt Busby Way", "Manchester", "MN", "United Kindom", "12345");
+
+-- Add store value
+INSERT INTO store(store_name, store_type, stadium_id)
+VALUES ("Burger King", "Food and Beverage", 1);
+
+-- Add Event value
+INSERT INTO event(event_name, event_date, event_type, stadium_id, host_username)
+VALUES ("Manchester United vs Machester City", "2024-06-12", "Sport", 1, "admin");
+
+-- Add seat value
+INSERT INTO seat(seat_section, seat_row, seat_number, seat_type, stadium_id)
+VALUES ("Level 1", 1, 1, "General Admission", 1),
+       ("Level 2", 2, 1, "Box Seats", 1),
+       ("Level 3", 3, 1, "Club Seats", 1),
+       ("Level 4", 4, 1, "Suites", 1);
+
+-- Add Ticket values
+INSERT INTO ticket(price, seat_id, stadium_id, event_id)
+VALUES (50, 1, 1, 1),
+       (100, 2, 1, 1),
+       (150, 3, 1, 1),
+       (200, 4, 1, 1);
+
+-- Add Account Values
+INSERT INTO account
+VALUES (0000111122223333, "Checking Account");
+
+-- Add Account User connection
+INSERT INTO account_user
+VALUES (0000111122223333, "admin");
+
+-- Add Ticket related to user values
+UPDATE ticket
+SET buyer         = "admin",
+    buyer_account = 0000111122223333
+WHERE ticket_id = 1;
+
+
+-- ---------------------------------------- TRIGGERS
 DELIMITER $$
 CREATE TRIGGER check_buyer_and_seller_are_not_same_on_insert
 	BEFORE INSERT ON ticket
@@ -127,7 +178,7 @@ CREATE TRIGGER check_buyer_and_seller_are_not_same_on_insert
 DELIMITER ;
 		
         
--- PROCEDURES
+-- --------------------------------------- PROCEDURES
 DELIMITER
 $$
 CREATE PROCEDURE get_all_ticket_information_related_to_user(IN user_id VARCHAR (255))
@@ -238,11 +289,32 @@ DELIMITER ;
 
 DELIMITER
 $$
+CREATE PROCEDURE get_events_in_the_same_stadium(IN stadium_id_ INT)
+BEGIN
+SELECT *
+FROM event
+WHERE stadium_id = stadium_id_;
+END$$
+DELIMITER ;
+
+DELIMITER
+$$
 CREATE PROCEDURE delete_event(IN event_id_ INT)
 BEGIN
 DELETE
 FROM event
 WHERE event_id = event_id_;
+END$$
+DELIMITER ;
+
+DELIMITER
+$$
+CREATE PROCEDURE create_stadium(IN name VARCHAR (255), IN capacity INT, IN address_1 VARCHAR (255),
+                                IN address_2 VARCHAR (255), IN city VARCHAR (64), IN state VARCHAR (64),
+                                IN country VARCHAR (64), IN zip_code int)
+BEGIN
+INSERT INTO stadium(stadium_name, capacity, address_line_1, address_line_2, city, state, country,
+                    zip_code) VALUE (name, capacity, address_1, address_2, city, state, country, zip_code);
 END$$
 DELIMITER ;
 
@@ -267,15 +339,23 @@ DELIMITER ;
 
 DELIMITER
 $$
+CREATE PROCEDURE delete_stadium(IN id INT)
+BEGIN
+DELETE
+FROM stadium
+WHERE stadium_id = id;
+END$$
+DELIMITER ;
+
+DELIMITER
+$$
 CREATE PROCEDURE get_all_empty_seat_from_stadium_for_event(IN event_id_ INT)
 BEGIN
 SELECT s.*
-FROM seat s
-         JOIN stadium AS st ON s.stadium_id = st.stadium_id
-         JOIN event AS e ON e.stadium_id = st.stadium_id
-         JOIN ticket AS t ON t.event_id = e.event_id
-WHERE e.event_id = event_id_
-  AND t.buyer = null;
+FROM ticket t
+         JOIN seat s ON t.seat_id = s.seat_id AND t.stadium_id = s.stadium_id
+WHERE t.event_id = event_id_
+  AND t.buyer IS NULL;
 END$$
 DELIMITER ;
 
@@ -332,18 +412,78 @@ DELIMITER ;
 
 DELIMITER
 $$
-CREATE PROCEDURE get_field_from_table(IN field_name VARCHAR (255), IN table_name VARCHAR (255))
+CREATE PROCEDURE get_all_host()
 BEGIN
-SELECT field_name
-FROM table_name;
+SELECT *
+FROM host;
 END$$
 DELIMITER ;
 
 DELIMITER
 $$
-CREATE PROCEDURE get_all_host()
+CREATE PROCEDURE add_host(IN username VARCHAR (64), IN password VARCHAR (64), IN email VARCHAR (64),
+                          IN phone VARCHAR (32), IN first VARCHAR (255), IN last VARCHAR (255), IN birth DATE)
+BEGIN
+INSERT INTO host
+VALUES (username, password, email, phone, first, last, birth);
+END$$
+DELIMITER ;
+
+DELIMITER
+$$
+CREATE PROCEDURE get_all_user()
 BEGIN
 SELECT *
-FROM host;
+FROM user;
+END$$
+DELIMITER ;
+
+DELIMITER
+$$
+CREATE PROCEDURE add_user(IN username VARCHAR (64), IN password VARCHAR (64), IN email VARCHAR (64),
+                          IN phone VARCHAR (32), IN birth YEAR)
+BEGIN
+INSERT INTO user
+VALUES (username, password, email, phone, birth);
+END$$
+DELIMITER ;
+
+DELIMITER
+$$
+CREATE PROCEDURE get_store_and_stadium_name()
+BEGIN
+SELECT s.*, st.stadium_name
+FROM store AS s
+         JOIN stadium AS st ON s.stadium_id = st.stadium_id;
+END$$
+DELIMITER ;
+
+DELIMITER
+$$
+CREATE PROCEDURE add_store(IN name VARCHAR (255), IN type ENUM("Merchandise", "Food and Beverage", "Souvenir",
+                           "Fan Shops", "Other"), IN stadium INT)
+BEGIN
+INSERT INTO store(store_name, store_type, stadium_id)
+VALUES (name, type, stadium);
+END$$
+DELIMITER ;
+
+DELIMITER
+$$
+CREATE PROCEDURE delete_store(IN id INT)
+BEGIN
+DELETE
+FROM store
+WHERE store_id = id;
+END$$
+DELIMITER ;
+
+DELIMITER
+$$
+CREATE PROCEDURE create_seats(IN row_ INT, IN num INT, IN type_ ENUM("General Admission", "Box Seats", "Club Seats",
+                              "Suites", "Accessible Seats", "Standing Areas", "Other"), IN id INT)
+BEGIN
+INSERT INTO seat(seat_row, seat_number, seat_type, stadium_id)
+VALUES (row_, num, type_, id);
 END$$
 DELIMITER ;
