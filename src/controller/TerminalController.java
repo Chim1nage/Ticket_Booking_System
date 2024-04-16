@@ -687,84 +687,84 @@ public class TerminalController implements IController {
         }
     }
 
-//    private void buyTicket() {
-//        List<Integer> ticketIdList = new ArrayList<>();
-//        List<String> firstNameList = new ArrayList<>();
-//        List<String> lastNameList = new ArrayList<>();
-//        List<Integer> seatRowList = new ArrayList<>();
-//        List<Integer> seatNumList = new ArrayList<>();
-//        List<Integer> eventIdList = new ArrayList<>();
-//        int eventID = findEventID();
-//        if (eventID == -1) {
-//            return;
-//        }
-//        try {
-//            PreparedStatement ps = connection.prepareStatement(
-//                    "select t.ticket_id, t.first_name, t.last_name, " +
-//                            "s.seat_row, s.seat_number, e.event_id from ticket as t " +
-//                            "join seat as s on s.seat_id = t.seat_id " +
-//                            "join event as e on e.event_id = t.event_id;");
-//            ResultSet rs = ps.executeQuery();
-//            while (rs.next()) {
-//                ticketIdList.add(rs.getInt("ticket_id"));
-//                firstNameList.add(rs.getString("first_name"));
-//                lastNameList.add(rs.getString("last_name"));
-//                seatRowList.add(rs.getInt("seat_row"));
-//                seatNumList.add(rs.getInt("seat_number"));
-//                eventIdList.add(rs.getInt("event_id"));
-//            }
-//            rs.close();
-//            ps.close();
-//        } catch (SQLException e) {
-//            throw new RuntimeException("Should not reach here. Error: " + e);
-//        }
-//        if (seatNumList.isEmpty()) {
-//            System.out.println("Sorry, there are no more available seats. Please try again later!");
-//            return;
-//        } else {
-//            System.out.println("These are the available seats");
-//            for (int i = 0; i < seatNumList.size(); i++) {
-//                int seatNum = seatNumList.get(i);
-//                int seatRow = seatNumList.get(i);
-//                System.out.println("Row: " + seatRow + " number: " + seatNum);
-//            }
-//        }
-//
-//        while (true) {
-//            System.out.print("Please enter desired row: ");
-//            String row = scanner.nextLine();
-//            System.out.println("Please enter desired seat: ");
-//            String seat = scanner.nextLine();
-//            int rowNum = -1;
-//            int seatNum = -1;
-//
-//            try {
-//                rowNum = Integer.parseInt(row);
-//                seatNum = Integer.parseInt(seat);
-//            } catch (NumberFormatException e) {
-//                System.out.println("Invalid input, Please try again!");
-//                continue;
-//            }
-//            if (seatNumList.isEmpty()) {
-//                System.out.println("Sorry, there are no more available seats. Please try again later!");
-//                return;
-//            } else {
-//                System.out.println("These are the available seats");
-//                for (int i = 0; i < seatNumList.size(); i++) {
-//                    int seatNum = seatNumList.get(i);
-//                    int seatRow = seatNumList.get(i);
-//                    System.out.println("Row: " + seatRow + " number: " + seatNum);
-//                }
-//            }
-//        }
-//    }
-//
-//    private void transferTicket() {
-//        int eventID = findEventID();
-//        if (eventID == -1) {
-//            return;
-//        }
-//    }
+    private void buyTicket() {
+        List<Integer> ticketIdList = new ArrayList<>();
+        List<String> firstNameList = new ArrayList<>();
+        List<String> lastNameList = new ArrayList<>();
+        List<Integer> seatRowList = new ArrayList<>();
+        List<Integer> seatNumList = new ArrayList<>();
+        List<Integer> eventIdList = new ArrayList<>();
+        int eventID = findEventID();
+        if (eventID == -1) {
+            return;
+        }
+        try {
+            PreparedStatement ps = connection.prepareStatement(
+                    "select t.ticket_id, t.first_name, t.last_name, " +
+                            "s.seat_row, s.seat_number, e.event_id from ticket as t " +
+                            "join seat as s on s.seat_id = t.seat_id " +
+                            "join event as e on e.event_id = t.event_id;");
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                ticketIdList.add(rs.getInt("ticket_id"));
+                firstNameList.add(rs.getString("first_name"));
+                lastNameList.add(rs.getString("last_name"));
+                seatRowList.add(rs.getInt("seat_row"));
+                seatNumList.add(rs.getInt("seat_number"));
+                eventIdList.add(rs.getInt("event_id"));
+            }
+            rs.close();
+            ps.close();
+        } catch (SQLException e) {
+            throw new RuntimeException("Should not reach here. Error: " + e);
+        }
+        if (seatNumList.isEmpty()) {
+            System.out.println("Sorry, there are no more available seats. Please try again later!");
+            return;
+        } else {
+            System.out.println("These are the available seats");
+            for (int i = 0; i < seatNumList.size(); i++) {
+                int seatNum = seatNumList.get(i);
+                int seatRow = seatNumList.get(i);
+                System.out.println("Row: " + seatRow + " number: " + seatNum);
+            }
+        }
+
+        while (true) {
+            System.out.print("Please enter desired row: ");
+            String row = scanner.nextLine();
+            System.out.println("Please enter desired seat: ");
+            String seat = scanner.nextLine();
+            int rowNum = -1;
+            int seatNum = -1;
+
+            try {
+                rowNum = Integer.parseInt(row);
+                seatNum = Integer.parseInt(seat);
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid input, Please try again!");
+                continue;
+            }
+            if (seatNumList.isEmpty()) {
+                System.out.println("Sorry, there are no more available seats. Please try again later!");
+                return;
+            } else {
+                System.out.println("These are the available seats");
+                for (int i = 0; i < seatNumList.size(); i++) {
+                    int seatNum = seatNumList.get(i);
+                    int seatRow = seatNumList.get(i);
+                    System.out.println("Row: " + seatRow + " number: " + seatNum);
+                }
+            }
+        }
+    }
+
+    private void transferTicket() {
+        int eventID = findEventID();
+        if (eventID == -1) {
+            return;
+        }
+    }
 
     /**
      * Modify an existing ticket
