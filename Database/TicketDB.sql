@@ -118,37 +118,37 @@ CREATE TABLE ticket(
 -- Add admin host value
 INSERT INTO host
 VALUES ("admin", "admin", "admin@hotmail.com", "1234567890", "admin", "admin", "2000-01-01");
-
+    
 -- Add admin user value
 INSERT INTO user
 VALUES ("admin", "admin", "admin@hotmail.com", "1234567890", "2000");
-
+    
 -- Add stadium value
 INSERT INTO stadium(stadium_name, capacity, address_line_1, city, state, country, zip_code)
 VALUES ("Trafford Stadium", 74310, "Sir Matt Busby Way", "Manchester", "MN", "United Kindom", "12345");
-
+    
 -- Add store value
 INSERT INTO store(store_name, store_type, stadium_id)
 VALUES ("Burger King", "Food and Beverage", 1);
-
+    
 -- Add Event value
 INSERT INTO event(event_name, event_date, event_type, stadium_id, host_username)
 VALUES ("Manchester United vs Machester City", "2024-06-12", "Sport", 1, "admin");
-
+    
 -- Add seat value
 INSERT INTO seat(seat_section, seat_row, seat_number, seat_type, stadium_id)
 VALUES ("Level 1", 1, 1, "General Admission", 1),
        ("Level 2", 2, 1, "Box Seats", 1),
        ("Level 3", 3, 1, "Club Seats", 1),
        ("Level 4", 4, 1, "Suites", 1);
-
+    
 -- Add Ticket values
 INSERT INTO ticket(price, seat_id, stadium_id, event_id)
 VALUES (50, 1, 1, 1),
        (100, 2, 1, 1),
        (150, 3, 1, 1),
        (200, 4, 1, 1);
-
+    
 -- Add Account Values
 INSERT INTO account
 VALUES (0000111122223333, "Checking Account");
@@ -156,7 +156,7 @@ VALUES (0000111122223333, "Checking Account");
 -- Add Account User connection
 INSERT INTO account_user
 VALUES (0000111122223333, "admin");
-
+    
 -- Add Ticket related to user values
 UPDATE ticket
 SET buyer         = "admin",
@@ -450,6 +450,16 @@ DELIMITER ;
 
 DELIMITER
 $$
+CREATE PROCEDURE delete_user(IN id INT)
+BEGIN
+DELETE
+FROM user
+WHERE user_username = id;
+END$$
+DELIMITER ;
+
+DELIMITER
+$$
 CREATE PROCEDURE get_store_and_stadium_name()
 BEGIN
 SELECT s.*, st.stadium_name
@@ -485,5 +495,24 @@ CREATE PROCEDURE create_seats(IN row_ INT, IN num INT, IN type_ ENUM("General Ad
 BEGIN
 INSERT INTO seat(seat_row, seat_number, seat_type, stadium_id)
 VALUES (row_, num, type_, id);
+END$$
+DELIMITER ;
+
+DELIMITER
+$$
+CREATE PROCEDURE create_account(IN account_ VARCHAR (19), IN type_ ENUM("Checking Account", "Savings Account",
+                                "Credit Card Account", "Debit Card Account"))
+BEGIN
+INSERT INTO account
+VALUES (account_, type_);
+END$$
+DELIMITER ;
+
+DELIMITER
+$$
+CREATE PROCEDURE create_account_user(IN account_ VARCHAR (19), IN username_ VARCHAR (64))
+BEGIN
+INSERT INTO account_user
+VALUES (account_, username_);
 END$$
 DELIMITER ;
