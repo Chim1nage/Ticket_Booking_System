@@ -2,6 +2,7 @@ package controller;
 
 import java.sql.*;
 import java.util.*;
+import java.util.regex.Pattern;
 
 public class TerminalController implements IController {
     /**
@@ -178,7 +179,7 @@ public class TerminalController implements IController {
             List<String> allUser = this.getFieldFromTable("user_username", "user");
             List<String> allEmail = this.getFieldFromTable("user_email", "user");
             List<String> allPhone = this.getFieldFromTable("user_phone_number", "user");
-            String userName, userPassword, userEmail, userPhoneNumber, userBirthYear;
+            String userName, userPassword, userEmail, userPhoneNumber, userBirthYear, paymentAccount, paymentType;
 
             while (true) {
                 // Get username
@@ -206,7 +207,7 @@ public class TerminalController implements IController {
                 }
                 // Get Phone number
                 while (true) {
-                    System.out.println("Please enter phone number");
+                    System.out.print("Please enter phone number: ");
                     userPhoneNumber = scanner.nextLine();
                     if (!allPhone.contains(userPhoneNumber)) {
                         break;
@@ -215,13 +216,46 @@ public class TerminalController implements IController {
                     }
                 }
                 // Get birth year
-                System.out.println("Please enter birth year in the form yyyy");
+                System.out.print("Please enter birth year in the form yyyy: ");
                 userBirthYear = scanner.nextLine();
 
+                // Get Payment Account information
+                String pattern = "\\d{16}";
+                while (true) {
+                    System.out.print("Enter your bank account number (16 digits): ");
+                    paymentAccount = scanner.nextLine();
+
+                    // Check if the input matches the pattern
+                    if (Pattern.matches(pattern, paymentAccount)) {
+                        break;
+                    } else {
+                        System.out.println("Invalid input. Please try again.");
+                    }
+                }
+
+                // Get Payment Account information
+                while (true) {
+                    System.out.print("Enter your bank account type (\"Checking Account\", \"Savings Account\", \"Credit Card Account\", \"Debit Card Account\"): ");
+                    paymentType = scanner.nextLine();
+
+                    // Check if the input matches the pattern
+                    if (paymentType.equalsIgnoreCase("Checking Account") ||
+                            paymentAccount.equalsIgnoreCase("Savings Account") ||
+                            paymentAccount.equalsIgnoreCase("Credit Card Account") ||
+                            paymentAccount.equalsIgnoreCase("Debit Card Account")) {
+                        break;
+                    } else {
+                        System.out.println("Invalid input. Please try again.");
+                    }
+                }
+
+                // Validate input
                 if (!userName.isEmpty() && !userPassword.isEmpty()
                         && !userEmail.isEmpty()
                         && !userPhoneNumber.isEmpty()
-                        && !userBirthYear.isEmpty()) {
+                        && !userBirthYear.isEmpty()
+                        && !paymentAccount.isEmpty()
+                        && !paymentType.isEmpty()) {
                     break;
                 } else {
                     System.out.println("Fields cannot be empty!");
@@ -244,26 +278,76 @@ public class TerminalController implements IController {
                 System.out.println("Enter \"y\" for yes and \"n\" for no");
                 String createAccount = scanner.nextLine();
                 if (createAccount.equalsIgnoreCase("y")) {
-                    try {
-                        String sql = "{CALL add_user(?, ?, ?, ?, ?)}";
-                        PreparedStatement statement = connection.prepareStatement(sql);
-                        statement.setString(1, userName);
-                        statement.setString(2, userPassword);
-                        statement.setString(3, userEmail);
-                        statement.setString(4, userPhoneNumber);
-                        statement.setString(5, userBirthYear);
-                        int rowsInserted = statement.executeUpdate();
-                        if (rowsInserted == 1) {
-                            System.out.println("Successfully created a new user account, please login!");
-                        }
-                        break;
-                    } catch (SQLException e) {
-                        System.out.println("Failed to create a new user account, please try again later!");
-                        return;
-                    }
+                    break;
                 } else if (createAccount.equalsIgnoreCase("n")) {
                     return;
+                } else {
+                    System.out.println("Invalid input. Please try again.");
                 }
+            }
+
+            // create user
+            try {
+                String sql = "{CALL add_user(?, ?, ?, ?, ?)}";
+                PreparedStatement statement = connection.prepareStatement(sql);
+                statement.setString(1, userName);
+                statement.setString(2, userPassword);
+                statement.setString(3, userEmail);
+                statement.setString(4, userPhoneNumber);
+                statement.setString(5, userBirthYear);
+                int rowsInserted = statement.executeUpdate();
+                if (rowsInserted == 1) {
+                    System.out.println("Successfully created a new user account!");
+                }
+            } catch (SQLException e) {
+                System.out.println("Failed to create a new user account, please try again later!");
+                return;
+            }
+
+            // create account
+            try {
+                PreparedStatement ps = connection.prepareStatement("{CALL create_account(?, ?)}");
+                ps.setString(1, paymentAccount);
+                ps.setString(2, paymentType);
+
+                int rowsAffected = ps.executeUpdate();
+                if (rowsAffected == 1) {
+                    System.out.println("Successfully created a payment account!");
+                } else {
+                    throw new RuntimeException("Should not reach here.");
+                }
+            } catch (SQLException e) {
+                System.out.println("Failed to create a new account!");
+                try {
+                    PreparedStatement ps = connection.prepareStatement("{CALL create_account(?, ?)}");
+                    ps.setString(1, paymentAccount);
+
+                    int rowsAffected = ps.executeUpdate();
+                    if (rowsAffected != 1) {
+                        throw new RuntimeException("Should not reach here.");
+                    } else {
+                        System.out.println("Account deleted");
+                    }
+                } catch (SQLException e2) {
+                    throw new RuntimeException("Should not reach here. Error: " + e2);
+                }
+                return;
+            }
+
+            // create account and user connection
+            try {
+                PreparedStatement ps = connection.prepareStatement("{CALL create_account_user(?, ?)}");
+                ps.setString(1, paymentAccount);
+                ps.setString(2, userName);
+
+                int affectedRows = ps.executeUpdate();
+                if (affectedRows != 1) {
+                    throw new RuntimeException("Should not reach here.");
+                } else {
+                    System.out.println("Successfully linked a payment account, please login!");
+                }
+            } catch (SQLException e) {
+                throw new RuntimeException("Should not reach here. Error: " + e);
             }
         }
     }
@@ -511,10 +595,10 @@ public class TerminalController implements IController {
                 String selection = scanner.nextLine().toLowerCase();
                 switch (selection) {
                     case "buy":
-//                        this.buyTicket();
+                        this.buyTicket();
                         break;
                     case "transfer":
-//                        this.transferTicket();
+                        this.transferTicket();
                         break;
                     case "modify":
                         this.modifyTicket();
