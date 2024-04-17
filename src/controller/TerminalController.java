@@ -1,6 +1,7 @@
 package controller;
 
 import java.sql.*;
+import java.time.LocalDate;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -24,30 +25,28 @@ public class TerminalController implements IController {
     /**
      * The name of the database we are testing with
      */
-    private final String dbName = "TicketDB";
+    private final String dbName = "ticketdb";
     public Connection connection = null;
     public Scanner scanner = null;
     private boolean isHost = false;
     private boolean loggedIn = false;
     private String loginAccount;
-    private String loginPassword;
-    private String loginMethod;
 
     /**
      * Prompt user to get login details
      */
     private void getDatabaseLogin() {
-        System.out.println("Please enter your MySQL username");
+        System.out.print("Please enter your MySQL username: ");
         this.userName = scanner.nextLine();
 
-        System.out.println("Please enter your MySQL password");
+        System.out.print("Please enter your MySQL password: ");
         this.password = scanner.nextLine();
     }
 
     /**
      * Get a new database connection
      *
-     * @throws SQLException
+     * @throws SQLException error if fail to connect to database
      */
     private void getDatabaseConnection() throws SQLException {
         Properties connectionProps = new Properties();
@@ -65,7 +64,7 @@ public class TerminalController implements IController {
      * Checks if the client is a user or a host.
      */
     private void hostOrUser() {
-        System.out.println("Are you a \"host\" or a \"user\"?");
+        System.out.print("Are you a \"host\" or a \"user\"? ");
         while (true) {
             String selection = scanner.nextLine();
             if (selection.equalsIgnoreCase("host")) {
@@ -430,7 +429,7 @@ public class TerminalController implements IController {
                     if (inputLoginPassword.equals(password)) {
                         this.loggedIn = true;
                         System.out.println("Successfully Logged In!");
-                        int index = -1;
+                        int index;
                         switch (method) {
                             case "username":
                                 this.loginAccount = inputLoginAccount;
@@ -446,8 +445,6 @@ public class TerminalController implements IController {
                             default:
                                 throw new RuntimeException("Should not reach here");
                         }
-                        this.loginPassword = inputLoginPassword;
-                        this.loginMethod = method;
                         return;
                     }
                 }
@@ -528,7 +525,7 @@ public class TerminalController implements IController {
                     if (inputLoginPassword.equals(password)) {
                         loggedIn = true;
                         System.out.println("Successfully Logged In!");
-                        int index = -1;
+                        int index;
                         switch (method) {
                             case "username":
                                 this.loginAccount = inputLoginAccount;
@@ -544,8 +541,6 @@ public class TerminalController implements IController {
                             default:
                                 throw new RuntimeException("Should not reach here");
                         }
-                        this.loginPassword = inputLoginPassword;
-                        this.loginMethod = method;
                         return;
                     }
                 }
@@ -558,6 +553,9 @@ public class TerminalController implements IController {
         }
     }
 
+    /**
+     * Main menu of the application
+     */
     private void mainMenu() {
         System.out.println("This is the main menu");
         if (this.isHost) {
@@ -586,12 +584,12 @@ public class TerminalController implements IController {
                     case "quit":
                         return;
                     default:
-                        throw new RuntimeException("Should not reach here");
+                        System.out.println("Invalid input.");
                 }
             }
         } else {
             while (true) {
-                System.out.println("Please choose to \"buy\" ticket, \"transfer\" ticket, \"modify\" ticket, \"delete\" ticket, or \"exit\" program.");
+                System.out.println("Please choose to \"buy\" ticket, \"transfer\" ticket, \"modify\" ticket, \"delete\" ticket, \"view\" ticket, or \"exit\" program.");
                 String selection = scanner.nextLine().toLowerCase();
                 switch (selection) {
                     case "buy":
@@ -605,6 +603,9 @@ public class TerminalController implements IController {
                         break;
                     case "delete":
                         this.deleteTicket();
+                        break;
+                    case "view":
+                        this.viewTicket();
                         break;
                     case "exit":
                         return;
@@ -630,51 +631,45 @@ public class TerminalController implements IController {
         return indexes;
     }
 
-    private List<String> createListFromIndexes(List<String> list, List<Integer> indexes) {
-        List<String> newList = new ArrayList<>();
+    /**
+     * Create a list of elements from the first list where its index are in the second list
+     *
+     * @param list    list of elements
+     * @param indexes list of indexes
+     * @param <T>     Type of list
+     * @return new list of elements
+     */
+    private <T> List<T> createListFromIndexes(List<T> list, List<Integer> indexes) {
+        List<T> newList = new ArrayList<>();
         for (int index : indexes) {
             if (index >= 0 && index < list.size()) {
                 newList.add(list.get(index));
             } else {
-                // Handle out-of-bounds indexes
-                System.out.println("Index " + index + " is out of bounds.");
+                throw new RuntimeException("Index " + index + " is out of bounds.");
             }
         }
         return newList;
     }
 
-    public List<Integer> createListFromIndexesInts(List<Integer> additionalList, List<Integer> indexes) {
-        List<Integer> newList = new ArrayList<>();
-        for (int index : indexes) {
-            if (index >= 0 && index < additionalList.size()) {
-                newList.add(additionalList.get(index));
-            } else {
-                // Handle out-of-bounds indexes
-                System.out.println("Index " + index + " is out of bounds.");
-            }
-        }
-        return newList;
-    }
-
+    /**
+     * Provide user filters and let user choose an event. Get the eventID
+     *
+     * @return The eventID of the event
+     */
     private int findEventID() {
         List<Integer> ticketIdList = new ArrayList<>();
-        List<String> bookingDateList = new ArrayList<>();
+        List<String> eventDateList = new ArrayList<>();
         List<String> stadiumNameList = new ArrayList<>();
         List<String> eventNameList = new ArrayList<>();
         List<Integer> eventIdList = new ArrayList<>();
         String location;
         String date;
         try {
-            PreparedStatement ps = connection.prepareStatement(
-                    "select t.ticket_id, t.booking_date, " +
-                            "s.seat_row, s.seat_number, st.stadium_name, e.event_name, e.event_id from ticket as t " +
-                            "join seat as s on s.seat_id = t.seat_id " +
-                            "join stadium as st on s.stadium_id = st.stadium_id " +
-                            "join event as e on e.event_id = t.event_id;");
+            PreparedStatement ps = connection.prepareStatement("{CALL get_all_ticket_information()}");
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 ticketIdList.add(rs.getInt("ticket_id"));
-                bookingDateList.add(rs.getString("booking_date"));
+                eventDateList.add(rs.getString("event_date"));
                 stadiumNameList.add(rs.getString("stadium_name"));
                 eventNameList.add(rs.getString("event_name"));
                 eventIdList.add(rs.getInt("event_id"));
@@ -684,14 +679,16 @@ public class TerminalController implements IController {
         } catch (SQLException e) {
             throw new RuntimeException("Should not reach here. Error: " + e);
         }
+
         if (ticketIdList.isEmpty()) {
             System.out.println("No tickets on sale. Returning to main menu.");
             return -1;
         }
+
         List<String> uniqueStadiumNameList = findUniqueElements(stadiumNameList);
         while (true) {
-            System.out.println("Select one of the following locations or \"b\" to return to main menu:");
-            System.out.println(uniqueStadiumNameList + "any");
+            System.out.println("Select one of the following locations or \"b\" to return to main menu: ");
+            System.out.println(uniqueStadiumNameList + " any");
             String selection = scanner.nextLine();
             if (uniqueStadiumNameList.contains(selection)) {
                 location = selection;
@@ -708,145 +705,407 @@ public class TerminalController implements IController {
             }
         }
         List<Integer> indexes = new ArrayList<>();
-        List<String> uniqueBookingDateList = new ArrayList<>();
-        ;
+        List<String> uniqueEventDateList;
+
         if (location.equals("any")) {
-            uniqueBookingDateList = findUniqueElements(bookingDateList);
+            uniqueEventDateList = findUniqueElements(eventDateList);
             for (int i = 0; i < stadiumNameList.size(); i++) {
                 indexes.add(i);
             }
         } else {
             indexes = findIndexesOfValue(stadiumNameList, location);
-            List<String> tempBookingDateList = createListFromIndexes(bookingDateList, indexes);
-            uniqueBookingDateList = findUniqueElements(tempBookingDateList);
+            List<String> tempEventDateList = createListFromIndexes(eventDateList, indexes);
+            uniqueEventDateList = findUniqueElements(tempEventDateList);
         }
+
         while (true) {
             System.out.println("Select one of the following dates or \"b\" to return to main menu:");
-            System.out.println(uniqueBookingDateList + "any");
+            System.out.println(uniqueEventDateList + " any");
             String selection = scanner.nextLine();
-            if (uniqueBookingDateList.contains(selection)) {
-                date = selection;
-                break;
-            }
             if (selection.equals("any")) {
                 date = "any";
                 break;
             }
             if (selection.equalsIgnoreCase("b")) {
                 return -1;
-            } else {
-                System.out.println("Invalid input!");
             }
+            if (uniqueEventDateList.contains(selection)) {
+                date = selection;
+                break;
+            }
+            System.out.println("Invalid input!");
         }
+
         List<Integer> indexes2 = new ArrayList<>();
-        List<Integer> eventList = new ArrayList<>();
-        ;
-        if (location.equals("any")) {
-            for (int i = 0; i < bookingDateList.size(); i++) {
+        if (date.equals("any")) {
+            for (int i = 0; i < eventDateList.size(); i++) {
                 indexes2.add(i);
             }
         } else {
-            indexes2 = findIndexesOfValue(bookingDateList, date);
+            indexes2 = findIndexesOfValue(eventDateList, date);
         }
+
         List<Integer> eventIndexes = new ArrayList<>();
         for (int num : indexes) {
             if (indexes2.contains(num)) {
                 eventIndexes.add(num);
             }
         }
-        eventList = createListFromIndexesInts(eventIdList, eventIndexes);
+
+        List<Integer> eventListId = createListFromIndexes(eventIdList, eventIndexes);
+        eventListId = findUniqueElements(eventListId);
+        List<String> eventListName = createListFromIndexes(eventNameList, eventIndexes);
+        eventListName = findUniqueElements(eventListName);
+        System.out.println("The following are all qualifying events. Please select one to proceed.");
+        for (int i = 0; i < eventListId.size(); i++) {
+            int eId = eventListId.get(i);
+            String eName = eventListName.get(i);
+            System.out.println("ID: " + eId + " Name: " + eName + " ");
+        }
+
         while (true) {
-            System.out.println("Select one of the following events or \"b\" to return to main menu:");
-            System.out.println(eventList);
+            System.out.println("Select one of the events or \"b\" to return to main menu:");
             String selection = scanner.nextLine();
-            int t = Integer.parseInt(selection);
-            if (eventList.contains(t)) {
-                return t;
-            }
             if (selection.equalsIgnoreCase("b")) {
                 return -1;
-            } else {
+            }
+
+            int t = -1;
+            try {
+                t = Integer.parseInt(selection);
+            } catch (NumberFormatException e) {
                 System.out.println("Invalid input!");
+            }
+
+            if (eventListId.contains(t)) {
+                return t;
             }
         }
     }
 
+    /**
+     * Buy a ticket
+     */
     private void buyTicket() {
-        List<Integer> ticketIdList = new ArrayList<>();
-        List<String> firstNameList = new ArrayList<>();
-        List<String> lastNameList = new ArrayList<>();
+        List<Integer> seatIdList = new ArrayList<>();
         List<Integer> seatRowList = new ArrayList<>();
         List<Integer> seatNumList = new ArrayList<>();
-        List<Integer> eventIdList = new ArrayList<>();
+        List<Integer> ticketPriceList = new ArrayList<>();
+        List<String> seatTypeList = new ArrayList<>();
+
+        // Verify eventID
         int eventID = findEventID();
         if (eventID == -1) {
+            System.out.println("Invalid event!");
             return;
         }
+
+        // Get Stadium ID
+        int stadiumID;
         try {
-            PreparedStatement ps = connection.prepareStatement(
-                    "select t.ticket_id, t.first_name, t.last_name, " +
-                            "s.seat_row, s.seat_number, e.event_id from ticket as t " +
-                            "join seat as s on s.seat_id = t.seat_id " +
-                            "join event as e on e.event_id = t.event_id;");
+            PreparedStatement ps = connection.prepareStatement("{CALL get_stadium_id(?)}");
+            ps.setInt(1, eventID);
+            ResultSet rs = ps.executeQuery();
+
+            rs.next();
+            stadiumID = rs.getInt("stadium_id");
+        } catch (SQLException e) {
+            throw new RuntimeException("Should not reach here. Error: " + e);
+        }
+
+        // Get tickets
+        try {
+            String query = "{CALL get_buy_ticket_info(?)}";
+            PreparedStatement ps = connection.prepareStatement(query);
+            ps.setInt(1, eventID);
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
-                ticketIdList.add(rs.getInt("ticket_id"));
-                firstNameList.add(rs.getString("first_name"));
-                lastNameList.add(rs.getString("last_name"));
+                seatIdList.add(rs.getInt("seat_id"));
                 seatRowList.add(rs.getInt("seat_row"));
                 seatNumList.add(rs.getInt("seat_number"));
-                eventIdList.add(rs.getInt("event_id"));
+                ticketPriceList.add(rs.getInt("price"));
+                seatTypeList.add(rs.getString("seat_type"));
             }
             rs.close();
             ps.close();
         } catch (SQLException e) {
             throw new RuntimeException("Should not reach here. Error: " + e);
         }
+
+        // Print all available seats
         if (seatNumList.isEmpty()) {
-            System.out.println("Sorry, there are no more available seats. Please try again later!");
+            System.out.println("Sorry, there are no available seats. Please try again later!");
             return;
         } else {
             System.out.println("These are the available seats");
             for (int i = 0; i < seatNumList.size(); i++) {
                 int seatNum = seatNumList.get(i);
-                int seatRow = seatNumList.get(i);
-                System.out.println("Row: " + seatRow + " number: " + seatNum);
+                int seatRow = seatRowList.get(i);
+                int seatId = seatIdList.get(i);
+                int price = ticketPriceList.get(i);
+                String type = seatTypeList.get(i);
+                System.out.println("Row: " + seatRow + " Number: " + seatNum + " Id: " + seatId
+                        + " Price: " + price + " Type: " + type);
             }
         }
 
+        // Get seat ID from user
+        int seat;
         while (true) {
-            System.out.print("Please enter desired row: ");
-            String row = scanner.nextLine();
-            System.out.println("Please enter desired seat: ");
-            String seat = scanner.nextLine();
-            int rowNum = -1;
-            int seatNum = -1;
-
+            System.out.print("Please enter desired seatID or \"b\" to return to main menu: ");
+            String seatId = scanner.nextLine();
+            if (seatId.equalsIgnoreCase("b")) {
+                return;
+            }
             try {
-                rowNum = Integer.parseInt(row);
-                seatNum = Integer.parseInt(seat);
+                seat = Integer.parseInt(seatId);
+                break;
             } catch (NumberFormatException e) {
                 System.out.println("Invalid input, Please try again!");
-                continue;
             }
-            if (seatNumList.isEmpty()) {
-                System.out.println("Sorry, there are no more available seats. Please try again later!");
+        }
+
+        // Get first name from user
+        String fname;
+        while (true) {
+            System.out.print("Please enter the first name for the ticket or \"b\" to return to main menu: ");
+            fname = scanner.nextLine();
+            if (fname.equalsIgnoreCase("b")) {
                 return;
+            } else if (fname.isEmpty()) {
+                System.out.println("Name cannot be empty");
             } else {
-                System.out.println("These are the available seats");
-                for (int i = 0; i < seatNumList.size(); i++) {
-                    int seatNum = seatNumList.get(i);
-                    int seatRow = seatNumList.get(i);
-                    System.out.println("Row: " + seatRow + " number: " + seatNum);
-                }
+                break;
             }
+        }
+
+        // Get last name from user
+        String lname;
+        while (true) {
+            System.out.print("Please enter the last name for the ticket or \"b\" to return to main menu: ");
+            lname = scanner.nextLine();
+            if (lname.equalsIgnoreCase("b")) {
+                return;
+            } else if (lname.isEmpty()) {
+                System.out.println("Name cannot be empty");
+            } else {
+                break;
+            }
+        }
+
+        // Get ticketID
+        int TicketId = -1;
+        try {
+            PreparedStatement ps = connection.prepareStatement("{CALL get_ticket_from_seat_stadium_event(?, ?, ?)}");
+            ps.setInt(1, seat);
+            ps.setInt(2, stadiumID);
+            ps.setInt(3, eventID);
+
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                TicketId = rs.getInt("ticket_id");
+            }
+            ps.close();
+            rs.close();
+        } catch (SQLException e) {
+            throw new RuntimeException("Should not reach here. Error: " + e);
+        }
+
+        // Get payment account number
+        String account;
+        try {
+            String query = "{CALL get_account_number(?)}";
+            PreparedStatement ps = connection.prepareStatement(query);
+            ps.setString(1, this.loginAccount);
+
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                account = rs.getString("account_number");
+            } else {
+                throw new RuntimeException("Should not reach here.");
+            }
+
+
+            query = "{CALL update_ticket_buyer(?, ?, ?, ?, ?, ?)}";
+            PreparedStatement ps2 = connection.prepareStatement(query);
+            ps2.setString(1, fname);
+            ps2.setString(2, lname);
+            ps2.setString(3, account);
+            ps2.setString(4, this.loginAccount);
+            ps2.setInt(5, TicketId);
+            ps2.setString(6, LocalDate.now().toString());
+
+            // Execute the update
+            int rowsAffected = ps2.executeUpdate();
+
+            if (rowsAffected != 1) {
+                throw new RuntimeException("update error.");
+            }
+            System.out.println("Ticket bought.");
+            ps.close();
+            ps2.close();
+        } catch (SQLException e) {
+            throw new RuntimeException("Should not reach here. Error: " + e);
         }
     }
 
+    /**
+     * A user posts a new ticket and seat for an event
+     */
     private void transferTicket() {
         int eventID = findEventID();
         if (eventID == -1) {
+            System.out.println("Invalid event!");
             return;
+        }
+
+        int stadiumID, i, j, price, ticketID;
+        String type;
+        int seatID = -1;
+
+        // Get stadium ID
+        try {
+            PreparedStatement ps2 = connection.prepareStatement("{CALL get_stadium_id(?)}");
+            ps2.setInt(1, eventID);
+            ResultSet rs2 = ps2.executeQuery();
+            rs2.next();
+            stadiumID = rs2.getInt("stadium_ID");
+        } catch (SQLException e) {
+            throw new RuntimeException("Should not reach here. Error: " + e);
+        }
+
+        // Get seat row
+        while (true) {
+            System.out.print("Please enter seat row or \"b\" to return to main menu: ");
+            String seatrow = scanner.nextLine();
+            if (seatrow.equalsIgnoreCase("b")) {
+                return;
+            }
+            try {
+                i = Integer.parseInt(seatrow);
+                break;
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid input.");
+            }
+        }
+
+        // Get seat column
+        while (true) {
+            System.out.print("Please enter seat column ");
+            String seatcolumn = scanner.nextLine();
+            try {
+                j = Integer.parseInt(seatcolumn);
+                break;
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid input.");
+            }
+        }
+
+        // Get seat type
+        while (true) {
+            System.out.print("Please enter one of the following seat type: General Admission, Box Seats, Club Seats, " +
+                    "Suites, Accessible Seats, Standing Areas, Other: ");
+            type = scanner.nextLine();
+            if (type.equalsIgnoreCase("General Admission") ||
+                    type.equalsIgnoreCase("Box Seats") ||
+                    type.equalsIgnoreCase("Club Seats") ||
+                    type.equalsIgnoreCase("Suites") ||
+                    type.equalsIgnoreCase("Accessible Seats") ||
+                    type.equalsIgnoreCase("Standing Areas") ||
+                    type.equalsIgnoreCase("Other")) {
+                break;
+            } else {
+                System.out.println("Invalid input");
+            }
+        }
+
+        // Get seat price
+        while (true) {
+            System.out.print("Please enter price: ");
+            String p = scanner.nextLine();
+            try {
+                price = Integer.parseInt(p);
+                break;
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid input.");
+            }
+        }
+
+        try {
+            PreparedStatement ps = connection.prepareStatement("{CALL create_seats(?, ?, ?, ?)}");
+            ps.setInt(1, i);
+            ps.setInt(2, j);
+            ps.setString(3, type);
+            ps.setInt(4, stadiumID);
+            int affectedRows = ps.executeUpdate();
+            if (affectedRows != 1) {
+                throw new RuntimeException("Should not reach here. Error: " + affectedRows);
+            }
+
+            PreparedStatement ps2 = connection.prepareStatement("{CALL get_seat_from_row_number_stadium(?, ?, ?)}");
+            ps2.setInt(1, i);
+            ps2.setInt(2, j);
+            ps2.setInt(3, stadiumID);
+            ResultSet rs = ps2.executeQuery();
+            if (rs.next()) {
+                seatID = rs.getInt("seat_id");
+            }
+
+            PreparedStatement ps4 = connection.prepareStatement("{CALL create_ticket(?, ?, ?, ?)}");
+            ps4.setInt(1, price);
+            ps4.setInt(2, seatID);
+            ps4.setInt(3, stadiumID);
+            ps4.setInt(4, eventID);
+            int affectedRow = ps4.executeUpdate();
+            if (affectedRow != 1) {
+                throw new RuntimeException("update error.");
+            }
+
+            ps = connection.prepareStatement("{CALL get_ticket_from_seat_stadium_event(?, ?, ?)}");
+            ps.setInt(1, seatID);
+            ps.setInt(2, stadiumID);
+            ps.setInt(3, eventID);
+            rs = ps.executeQuery();
+            if (rs.next()) {
+                ticketID = rs.getInt("ticket_id");
+            } else {
+                throw new RuntimeException("Should not reach here.");
+            }
+
+            String account;
+            String query = "{CALL get_account_number(?)}";
+            PreparedStatement ps5 = connection.prepareStatement(query);
+            ps5.setString(1, this.loginAccount);
+
+            ResultSet rs5 = ps5.executeQuery();
+            if (rs5.next()) {
+                account = rs5.getString("account_number");
+            } else {
+                throw new RuntimeException("Should not reach here.");
+            }
+
+            query = "{CALL update_ticket_seller(?, ?, ?)}";
+            PreparedStatement ps3 = connection.prepareStatement(query);
+            ps3.setString(1, account);
+            ps3.setString(2, this.loginAccount);
+            ps3.setInt(3, ticketID);
+            // Execute the update
+            int rowsAffected = ps3.executeUpdate();
+            if (rowsAffected != 1) {
+                throw new RuntimeException("update error.");
+            } else {
+                System.out.println("ticket created.");
+            }
+
+            rs.close();
+            ps.close();
+            ps2.close();
+            ps3.close();
+            ps4.close();
+            ps5.close();
+            rs5.close();
+        } catch (SQLException e) {
+            throw new RuntimeException("Should not reach here. Error: " + e);
         }
     }
 
@@ -907,7 +1166,7 @@ public class TerminalController implements IController {
         }
 
         // ticketId to modify
-        int ticket = -1;
+        int ticket;
         // Choose which ticket to modify
         while (true) {
             System.out.println("Which ticket do you want to modify. Please enter the ticket id or \"b\" to return to main menu.");
@@ -937,7 +1196,7 @@ public class TerminalController implements IController {
         while (true) {
             System.out.println("Do you want to change the \"name\" or \"seat\" of the ticket or \"b\" to return to main menu.");
             String selection = scanner.nextLine().toLowerCase();
-            if (selection.equals("name")) {
+            if (selection.equalsIgnoreCase("name")) {
                 System.out.println("Please enter the first name");
                 String firstName = scanner.nextLine();
                 System.out.println("Please enter the last name");
@@ -961,7 +1220,7 @@ public class TerminalController implements IController {
                 } catch (SQLException e) {
                     throw new RuntimeException("Should not reach here. Error: " + e);
                 }
-            } else if (selection.equals("seat")) {
+            } else if (selection.equalsIgnoreCase("seat")) {
                 List<Integer> availableSeatsRow = new ArrayList<>();
                 List<Integer> availableSeatsNum = new ArrayList<>();
                 // Get all available seats
@@ -997,8 +1256,7 @@ public class TerminalController implements IController {
                     String row = scanner.nextLine();
                     System.out.print("Please enter desired seat: ");
                     String seat = scanner.nextLine();
-                    int rowNum = -1;
-                    int seatNum = -1;
+                    int rowNum, seatNum;
 
                     try {
                         rowNum = Integer.parseInt(row);
@@ -1016,8 +1274,7 @@ public class TerminalController implements IController {
                             }
                         }
                         if (numOfRows.contains(seatNum)) {
-                            String bkDate = "";
-                            String firstN, lastN;
+                            String firstN, lastN, bkDate;
                             // Get old ticket information
                             try {
                                 String query = "{CALL get_ticket(?)}";
@@ -1038,19 +1295,7 @@ public class TerminalController implements IController {
                             }
 
                             // Reset old ticket information
-                            try {
-                                String updateOldTicket = "{CALL reset_ticket_trading_information(?)}";
-                                PreparedStatement ps = connection.prepareStatement(updateOldTicket);
-                                ps.setInt(1, ticket);
-
-                                int affectedRows = ps.executeUpdate();
-                                if (affectedRows != 1) {
-                                    throw new RuntimeException("Should not reach here.");
-                                }
-                                ps.close();
-                            } catch (SQLException e) {
-                                throw new RuntimeException("Should not reach here. Error: " + e);
-                            }
+                            this.resetTicketToDefault(ticket);
 
                             // Update new seat and ticket information
                             try {
@@ -1105,7 +1350,7 @@ public class TerminalController implements IController {
                         return;
                     }
                 }
-            } else if (selection.equals("b")) {
+            } else if (selection.equalsIgnoreCase("b")) {
                 return;
             } else {
                 System.out.println("Invalid input.");
@@ -1123,7 +1368,6 @@ public class TerminalController implements IController {
         List<Integer> priceList = new ArrayList<>();
         List<String> firstNameList = new ArrayList<>();
         List<String> lastNameList = new ArrayList<>();
-        List<Integer> seatIdList = new ArrayList<>();
         List<Integer> seatRowList = new ArrayList<>();
         List<Integer> seatNumList = new ArrayList<>();
         List<String> stadiumNameList = new ArrayList<>();
@@ -1138,7 +1382,6 @@ public class TerminalController implements IController {
                 priceList.add(rs.getInt("price"));
                 firstNameList.add(rs.getString("first_name"));
                 lastNameList.add(rs.getString("last_name"));
-                seatIdList.add(rs.getInt("seat_id"));
                 seatRowList.add(rs.getInt("seat_row"));
                 seatNumList.add(rs.getInt("seat_number"));
                 stadiumNameList.add(rs.getString("stadium_name"));
@@ -1171,7 +1414,7 @@ public class TerminalController implements IController {
         }
 
         // ticketId to modify
-        int ticket = -1;
+        int ticket;
         // Choose which ticket to modify
         while (true) {
             System.out.println("Which ticket do you want to delete. Please enter the ticket id or \"b\" to return to main menu.");
@@ -1203,6 +1446,18 @@ public class TerminalController implements IController {
             }
         }
 
+        // Delete ticket
+        this.resetTicketToDefault(ticket);
+
+        System.out.println("Successfully deleted ticket.");
+    }
+
+    /**
+     * Resets the ticket information to default
+     *
+     * @param ticket the ticket id
+     */
+    private void resetTicketToDefault(int ticket) {
         try {
             String query = "{CALL reset_ticket_trading_information(?)}";
             PreparedStatement ps = connection.prepareStatement(query);
@@ -1216,8 +1471,60 @@ public class TerminalController implements IController {
         } catch (SQLException e) {
             throw new RuntimeException("Should not reach here. Error: " + e);
         }
+    }
 
-        System.out.println("Successfully deleted ticket.");
+    /**
+     * View all tickets under user
+     */
+    private void viewTicket() {
+        List<Integer> ticketIdList = new ArrayList<>();
+        List<String> bookingDateList = new ArrayList<>();
+        List<Integer> priceList = new ArrayList<>();
+        List<String> firstNameList = new ArrayList<>();
+        List<String> lastNameList = new ArrayList<>();
+        List<String> stadiumNameList = new ArrayList<>();
+        List<String> eventNameList = new ArrayList<>();
+        List<Integer> seatRowList = new ArrayList<>();
+        List<Integer> seatNumList = new ArrayList<>();
+
+        try {
+            PreparedStatement ps = connection.prepareStatement("{CALL get_all_ticket_information_related_to_user(?)}");
+            ps.setString(1, this.loginAccount);
+            ResultSet rs = ps.executeQuery();
+
+            while (rs.next()) {
+                ticketIdList.add(rs.getInt("ticket_id"));
+                bookingDateList.add(rs.getString("booking_date"));
+                priceList.add(rs.getInt("price"));
+                firstNameList.add(rs.getString("first_name"));
+                lastNameList.add(rs.getString("last_name"));
+                stadiumNameList.add(rs.getString("stadium_name"));
+                eventNameList.add(rs.getString("event_name"));
+                seatRowList.add(rs.getInt("seat_row"));
+                seatNumList.add(rs.getInt("seat_number"));
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Should not reach here. Error: " + e);
+        }
+
+        if (ticketIdList.isEmpty()) {
+            System.out.println("You do not have any tickets. Returning to main menu.");
+        } else {
+            for (int i = 0; i < ticketIdList.size(); i++) {
+                int ticketId = ticketIdList.get(i);
+                String date = bookingDateList.get(i);
+                String firstName = firstNameList.get(i);
+                String lastName = lastNameList.get(i);
+                int seatRow = seatRowList.get(i);
+                int seatNum = seatNumList.get(i);
+                String stadiumName = stadiumNameList.get(i);
+                String eventName = eventNameList.get(i);
+                int price = priceList.get(i);
+                System.out.println(ticketId + ": " + eventName + " at " + stadiumName + " on " + date
+                        + " for " + firstName + " " + lastName + " on row: " + seatRow + " number: "
+                        + seatNum + " with price: " + price);
+            }
+        }
     }
 
     /**
@@ -1230,7 +1537,6 @@ public class TerminalController implements IController {
         List<String> eventNameList = new ArrayList<>();
         List<String> eventDateList = new ArrayList<>();
         List<String> eventTypeList = new ArrayList<>();
-        List<Integer> eventStadiumList = new ArrayList<>();
         try {
             String query = "{CALL get_all_event()}";
             PreparedStatement ps = connection.prepareStatement(query);
@@ -1240,7 +1546,6 @@ public class TerminalController implements IController {
                 eventNameList.add(rs.getString("event_name"));
                 eventDateList.add(rs.getString("event_date"));
                 eventTypeList.add(rs.getString("event_type"));
-                eventStadiumList.add(rs.getInt("stadium_id"));
             }
             ps.close();
             rs.close();
@@ -1259,7 +1564,6 @@ public class TerminalController implements IController {
             String et = scanner.nextLine();
             if (en.isEmpty() || ed.isEmpty() || et.isEmpty()) {
                 System.out.println("Event name or event date or type is empty. Please retry.");
-                continue;
             } else {
                 eventName = en;
                 eventDate = ed;
@@ -1306,7 +1610,7 @@ public class TerminalController implements IController {
         }
 
         // select stadium
-        int stadiumId = -1;
+        int stadiumId;
         while (true) {
             System.out.println("Please enter the ID of the stadium you wish to host the event or \"b\" to return to main menu.");
             String stadium = scanner.nextLine();
@@ -1372,7 +1676,7 @@ public class TerminalController implements IController {
         }
 
         // Create Event
-        int eventId = -1;
+        int eventId;
         try {
             String query = "{CALL create_event(?,?,?,?,?)}";
             PreparedStatement ps = connection.prepareStatement(query);
@@ -1423,16 +1727,16 @@ public class TerminalController implements IController {
             throw new RuntimeException("Should not reach here. Error: " + e);
         }
         if (seatIdList.isEmpty()) {
-            System.out.println("Sorry, there are no available seats.");
+            System.out.println("Sorry, there are no seats in this stadium.");
             return;
         }
 
         // Set price of ticket
-        int price = -1;
+        int price;
         while (true) {
             System.out.println("Please enter a price for all tickets of the event");
             String selection = scanner.nextLine();
-            int inputPrice = -1;
+            int inputPrice;
             try {
                 inputPrice = Integer.parseInt(selection);
             } catch (NumberFormatException e) {
@@ -1444,12 +1748,12 @@ public class TerminalController implements IController {
         }
 
         // Create tickets for the event
-        for (int i = 0; i < seatIdList.size(); i++) {
+        for (Integer integer : seatIdList) {
             try {
                 String query = "{CALL create_ticket(?, ?, ?, ?)}";
                 PreparedStatement ps = connection.prepareStatement(query);
                 ps.setInt(1, price);
-                ps.setInt(2, seatIdList.get(i));
+                ps.setInt(2, integer);
                 ps.setInt(3, stadiumId);
                 ps.setInt(4, eventId);
 
@@ -1463,7 +1767,6 @@ public class TerminalController implements IController {
         }
 
         System.out.println("Successfully created all tickets related to the event. Returning to main menu.");
-        return;
     }
 
     /**
@@ -1502,7 +1805,7 @@ public class TerminalController implements IController {
         }
 
         // Let host select event
-        int eventId = -1;
+        int eventId;
         while (true) {
             System.out.println("Please enter the id of the event you want to delete, or \"b\" to return to main menu.");
             String input = scanner.nextLine();
@@ -1520,7 +1823,6 @@ public class TerminalController implements IController {
                 break;
             } else {
                 System.out.println("Invalid input. Please retry.");
-                continue;
             }
         }
 
@@ -1600,14 +1902,14 @@ public class TerminalController implements IController {
         }
 
         // Get user select stadium ID
-        int stadiumId = -1;
+        int stadiumId;
         while (true) {
             System.out.println("Please enter the id of the store, or \"b\" to return to main menu.");
             String input = scanner.nextLine();
             if (input.equalsIgnoreCase("b")) {
                 return;
             }
-            int stadiumInputId = -1;
+            int stadiumInputId;
             try {
                 stadiumInputId = Integer.parseInt(input);
             } catch (NumberFormatException e) {
@@ -1677,14 +1979,14 @@ public class TerminalController implements IController {
         }
 
         // select stores
-        int storeId = -1;
+        int storeId;
         while (true) {
             System.out.println("Please enter the id of the store, or \"b\" to return to main menu.");
             String input = scanner.nextLine();
             if (input.equalsIgnoreCase("b")) {
                 return;
             }
-            int storeInputId = -1;
+            int storeInputId;
             try {
                 storeInputId = Integer.parseInt(input);
             } catch (NumberFormatException e) {
@@ -1697,7 +1999,6 @@ public class TerminalController implements IController {
                 break;
             } else {
                 System.out.println("Invalid input. Please retry.");
-                continue;
             }
         }
 
@@ -1736,7 +2037,7 @@ public class TerminalController implements IController {
      */
     private void createStadium() {
         String name = createStadiumHelper("name");
-        int capacity = 0;
+        int capacity;
         while (true) {
             System.out.println("Please enter the capcity of the stadium");
             String capacityStr = scanner.nextLine();
@@ -1749,7 +2050,6 @@ public class TerminalController implements IController {
 
             if (capacity < 1) {
                 System.out.println("Invalid capacity");
-                continue;
             } else {
                 break;
             }
@@ -1762,7 +2062,7 @@ public class TerminalController implements IController {
         String state = createStadiumHelper("state");
         String country = createStadiumHelper("country");
 
-        int zipcode = 0;
+        int zipcode;
         while (true) {
             System.out.println("Please enter the zipcode of the stadium");
             String zipcodeStr = scanner.nextLine();
@@ -1770,6 +2070,7 @@ public class TerminalController implements IController {
                 zipcode = Integer.parseInt(zipcodeStr);
             } catch (NumberFormatException e) {
                 System.out.println("Invalid zipcode");
+                continue;
             }
 
             if (zipcode < 1 || zipcode > 99999) {
@@ -1779,7 +2080,7 @@ public class TerminalController implements IController {
             }
         }
 
-        int rows = -1;
+        int rows;
         while (true) {
             System.out.println("Please enter the number of rows that divide the capacity, or \"b\" to return to main menu.");
             String input = scanner.nextLine();
@@ -1802,13 +2103,7 @@ public class TerminalController implements IController {
         }
 
         // Get number of all types of seats
-        int ga = -1;
-        int bs = -1;
-        int cs = -1;
-        int s = -1;
-        int as = -1;
-        int sa = -1;
-        int other = -1;
+        int ga, bs, cs, s, as, sa, other;
         while (true) {
             System.out.println("Please enter number of general admission seats, 0 if none");
             String gaStr = scanner.nextLine();
@@ -1859,7 +2154,7 @@ public class TerminalController implements IController {
         }
 
         // create stadium
-        int stadiumID = -1;
+        int stadiumID;
         try {
             PreparedStatement ps = connection.prepareStatement("{CALL create_stadium(?, ?, ?, ?, ?, ?, ?, ?)}");
             ps.setString(1, name);
@@ -1900,18 +2195,25 @@ public class TerminalController implements IController {
                 String type;
                 if (ga > 0) {
                     type = "General Admission";
+                    ga--;
                 } else if (bs > 0) {
                     type = "Box Seats";
+                    bs--;
                 } else if (cs > 0) {
                     type = "Club Seats";
+                    cs--;
                 } else if (s > 0) {
                     type = "Suites";
+                    s--;
                 } else if (as > 0) {
                     type = "Accessible Seats";
+                    as--;
                 } else if (sa > 0) {
                     type = "Standing Areas";
+                    sa--;
                 } else if (other > 0) {
                     type = "Other";
+                    other--;
                 } else {
                     throw new RuntimeException("Should not reach here.");
                 }
@@ -1934,6 +2236,12 @@ public class TerminalController implements IController {
         System.out.println("Seats created");
     }
 
+    /**
+     * Helps get user input
+     *
+     * @param field the field the application needs
+     * @return the verified input
+     */
     private String createStadiumHelper(String field) {
         String result;
         while (true) {
@@ -1987,7 +2295,7 @@ public class TerminalController implements IController {
         }
 
         // Get desired stadium id to delete
-        int stadiumId = -1;
+        int stadiumId;
         while (true) {
             System.out.println("Please select the stadium ID to delete or \"b\" to return to main menu.");
             String input = scanner.nextLine();
@@ -2031,7 +2339,6 @@ public class TerminalController implements IController {
      * @param field column name
      * @param table table name
      * @return list of all elements in column
-     * @throws SQLException
      */
     private List<String> getFieldFromTable(String field, String table) {
         List<String> result = new ArrayList<>();
@@ -2110,9 +2417,7 @@ public class TerminalController implements IController {
             connection.close();
             scanner.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new RuntimeException("Failed to close the application. Error: " + e);
         }
     }
 }
-
-
